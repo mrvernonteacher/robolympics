@@ -157,17 +157,16 @@ function setCloudStatus(msg) {
 
 window.onload = function() {
     buildBracketEventsHTML();
-    // Render local blank template immediately so page is never blank
     renderFullUI();
 
     setCloudStatus("⏳ Connecting to Sheet...");
-    fetch(`${APPS_SCRIPT_URL}?action=getYears`)
-        .then(res => res.json())
-        .then(res => populateYearsAndLoad(res.years))
-        .catch(err => setCloudStatus("💾 Last Saved: Offline mode"));
+    loadCurrentYear();
 };
 
 function renderFullUI() {
+    const yInput = document.getElementById('yearInput');
+    if (yInput) yInput.value = currentYear;
+
     document.getElementById('class1Name').value = data.class1Name || "Guiendon";
     document.getElementById('class2Name').value = data.class2Name || "Vernon";
     updateClassTitles();
@@ -186,24 +185,10 @@ function renderFullUI() {
     updateStatusDisplay('golf', 2);
 }
 
-function populateYearsAndLoad(yearList) {
-    const sel = document.getElementById('yearSelector');
-    if (!sel) return;
-    sel.innerHTML = "";
-    yearList.forEach(y => {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.innerText = y;
-        sel.appendChild(opt);
-    });
-
-    currentYear = yearList[0] || "2026";
-    sel.value = currentYear;
-    loadCurrentYear();
-}
-
-function changeYear(selectedYear) {
-    currentYear = selectedYear;
+function loadCustomYear() {
+    const yInput = document.getElementById('yearInput');
+    if (!yInput || !yInput.value.trim()) return;
+    currentYear = yInput.value.trim();
     loadCurrentYear();
 }
 
@@ -211,20 +196,21 @@ function loadCurrentYear() {
     setCloudStatus(`⏳ Loading ${currentYear}...`);
     fetch(`${APPS_SCRIPT_URL}?action=loadYear&year=${encodeURIComponent(currentYear)}`)
         .then(res => res.json())
-        .then(res => handleLoadedData(res))
-        .catch(err => setCloudStatus("💾 Last Saved: Local cache"));
-}
-
-function handleLoadedData(res) {
-    if (res.status === "success" && res.data) {
-        data = res.data;
-        setCloudStatus(`💾 Last Saved: Synced (${currentYear})`);
-    } else {
-        data = createBlankTemplate();
-        setCloudStatus(`💾 Last Saved: Initialized (${currentYear})`);
-        triggerCloudSave(true);
-    }
-    renderFullUI();
+        .then(res => {
+            if (res.status === "success" && res.data) {
+                data = res.data;
+                setCloudStatus(`💾 Last Saved: Synced (${currentYear})`);
+            } else {
+                data = createBlankTemplate();
+                setCloudStatus(`💾 Last Saved: Initialized (${currentYear})`);
+                triggerCloudSave(true);
+            }
+            renderFullUI();
+        })
+        .catch(() => {
+            setCloudStatus("💾 Last Saved: Local cache");
+            renderFullUI();
+        });
 }
 
 let saveTimeout = null;
@@ -269,25 +255,27 @@ function forceSaveData() {
 }
 
 function promptArchiveYear() {
-    const newYear = prompt("Enter the name for the new competition year (e.g. 2027):");
+    const newYear = prompt("Enter the name for the new competition year tab (e.g. 2027):");
     if (!newYear || newYear.trim() === "") return;
+
+    currentYear = newYear.trim();
+    document.getElementById('yearInput').value = currentYear;
+    data = createBlankTemplate();
 
     setCloudStatus("⏳ Creating archive tab...");
     fetch(APPS_SCRIPT_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "archiveYear", year: newYear.trim(), data: createBlankTemplate() })
+        body: JSON.stringify({ action: "archiveYear", year: currentYear, data: data })
     })
     .then(res => res.json())
     .then(res => {
-        if (res.status === "exists") {
-            alert(res.message);
-            setCloudStatus(`💾 Last Saved: Synced (${currentYear})`);
-        } else {
-            alert(`Created year ${res.year} successfully!`);
-            populateYearsAndLoad(res.years);
-        }
+        alert(`Created and loaded year tab '${currentYear}' successfully!`);
+        setCloudStatus(`💾 Last Saved: New Tab Created`);
+        renderFullUI();
     })
-    .catch(() => setCloudStatus("💾 Last Saved: Failed archive"));
+    .catch(() => {
+        setCloudStatus("💾 Last Saved: Failed archive");
+    });
 }
 
 function formatMs(totalMs, includeMinutes = true) {
@@ -973,7 +961,7 @@ function lockInManualBracket(eventId, classId, isRelay) {
             const p2a = getVal(`sel-${eventId}-${classId}-${mId}-1-a`), p2b = getVal(`sel-${eventId}-${classId}-${mId}-1-b`);
             ev[mId] = [
                 (p1a === "BYE" && p1b === "BYE") ? "BYE" : ((p1a === "" && p1b === "") ? "" : [p1a || "BYE", p1b || "BYE"]),
-                (p2a === "BYE" && p2b === "BYE") ? "BYE" : ((p2a === "" && p2b === "") ? "" : [p2a || "BYE", p2b || "BYE"])
+                (p2a === "BYE" && p2b === "BYE") ? "BYE" : ((p2a === "" && p2b === "") ? "" : [p2a || "BYE", p2b || "BYE'])
             ];
         }
     }
@@ -1313,7 +1301,7 @@ function awardGolfPoints(classId) {
 function revokeGolfPoints(classId) {
     if (!isAdmin) return;
     if (!data.awards[classId]?.['golf']) return;
-    if (confirm("Reset golf points for this class?")) {
+    if (confirm("Reset points for this class?")) {
         undoEventPoints('golf', classId);
         saveData();
     }
