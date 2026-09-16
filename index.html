@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robo-Lympics Standings</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="year-controls">
+        <label for="yearSelector" style="font-weight: bold; font-size: 14px;">Tournament Year:</label>
+        <select id="yearSelector" onchange="changeYear(this.value)"></select>
+        <button onclick="promptArchiveYear()" class="admin-only" style="background-color: #8e44ad; padding: 6px 12px; font-size: 12px;">📁 Archive & Start New Year</button>
+    </div>
+
+    <div id="cloud-indicator" class="cloud-status">☁️ Connecting to Google Sheet...</div>
+
+    <div>
+        <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdmin()">🔒 Teacher Mode</button>
+    </div>
+</div>
+
+<header>
+    <img src="Robo-Lympics Logo.gif" alt="Robo-Lympics Logo" onerror="this.style.display='none'">
+    <h1 style="margin-top: 5px;">Robo-Lympics Tournament Tracker</h1>
+</header>
+
+<nav>
+    <button onclick="showTab('setup')">Setup Teams</button>
+    <button onclick="showTab('leaderboard')" style="background-color: var(--yellow); color: black;">Leaderboards</button>
+    <button onclick="showTab('event-tug')">Tug-o-War</button>
+    <button onclick="showTab('event-dash')">X-Meter Dash</button>
+    <button onclick="showTab('event-relay')">Robo-Relay</button>
+    <button onclick="showTab('event-athalon')">Robathalon</button>
+    <button onclick="showTab('event-golf')">Bot-Bot Golf</button>
+</nav>
+
+<!-- DRAMATIC MATCH TIMER MODAL -->
+<div id="match-modal" class="modal-overlay">
+    <div class="modal-card">
+        <canvas id="confetti-canvas"></canvas>
+        <div id="modal-event-name" class="modal-event-title">Event Matchup</div>
+        <div id="modal-matchup-title" class="modal-matchup-names">Team 1 vs Team 2</div>
+        
+        <div id="modal-display-area" class="dramatic-display"></div>
+        <div id="modal-clock-controls" style="margin: 10px 0; display: none;"></div>
+
+        <div id="modal-actions-area" style="display:none;">
+            <h3 style="margin: 10px 0; color: var(--green);">SELECT OR CONFIRM WINNER:</h3>
+            <div class="modal-btn-grid" id="modal-winner-buttons"></div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="closeMatchModal()" style="background-color: #888; font-size: 11px;">Cancel / Dismiss to Bracket</button>
+        </div>
+    </div>
+</div>
+
+<!-- SETUP TAB -->
+<div id="setup" class="tab-content active-tab">
+    <h2>Setup Classes & Teams</h2>
+    <div class="split-view">
+        <div class="class-section c1-border">
+            <input type="text" id="class1Name" class="class-title" value="Guiendon" onchange="saveData()" readonly>
+            <div id="class1List"></div>
+            <div class="admin-only" style="margin-top: 15px; display: flex; gap: 5px;">
+                <input type="text" id="newTeam1" placeholder="Type team name and hit Enter" style="flex-grow: 1;" onkeypress="handleKeyPress(event, 1)">
+                <button onclick="addTeam(1)">Add</button>
+            </div>
+        </div>
+        <div class="class-section c2-border">
+            <input type="text" id="class2Name" class="class-title" value="Vernon" onchange="saveData()" readonly>
+            <div id="class2List"></div>
+            <div class="admin-only" style="margin-top: 15px; display: flex; gap: 5px;">
+                <input type="text" id="newTeam2" placeholder="Type team name and hit Enter" style="flex-grow: 1;" onkeypress="handleKeyPress(event, 2)">
+                <button onclick="addTeam(2)">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LEADERBOARDS TAB -->
+<div id="leaderboard" class="tab-content">
+    <h2>Class Leaderboards & Medal Count</h2>
+    <div class="split-view">
+        <div class="class-section c1-border">
+            <h3 class="title-c1">Guiendon Standings</h3>
+            <div id="standings-podium-1"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Rank</th>
+                        <th>Team</th>
+                        <th style="width: 12%;">🥇 Gold</th>
+                        <th style="width: 12%;">🥈 Silver</th>
+                        <th style="width: 12%;">🥉 Bronze</th>
+                        <th style="width: 18%;">Total Pts</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody1"></tbody>
+            </table>
+        </div>
+
+        <div class="class-section c2-border">
+            <h3 class="title-c2">Vernon Standings</h3>
+            <div id="standings-podium-2"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Rank</th>
+                        <th>Team</th>
+                        <th style="width: 12%;">🥇 Gold</th>
+                        <th style="width: 12%;">🥈 Silver</th>
+                        <th style="width: 12%;">🥉 Bronze</th>
+                        <th style="width: 18%;">Total Pts</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody2"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CONTAINER WHERE SCRIPT RENDERS THE 4 BRACKET EVENTS -->
+<div id="bracket-events-container"></div>
+
+<!-- BOT-BOT GOLF TAB -->
+<div id="event-golf" class="tab-content">
+    <h2 style="text-align: center; margin-bottom: 5px;">Bot-Bot Golf (Final Event - DOUBLE POINTS)</h2>
+    <p style="text-align: center; margin-bottom: 20px;">Lowest score wins. 1st = 10 pts, 2nd = 6 pts, 3rd = 2 pts.</p>
+    
+    <div class="event-embed" id="golf-canva-embed"></div>
+
+    <div class="split-view">
+        <div class="class-section c1-border">
+            <h3 class="title-c1">Guiendon Bot-Bot Golf</h3>
+            <div class="bracket-wrapper" id="golf-wrapper-1">
+                <table>
+                    <thead><tr><th>Team</th><th>Score (Strokes)</th></tr></thead>
+                    <tbody id="golfBody1"></tbody>
+                </table>
+                <div id="podium-overlay-golf-1" class="event-podium-overlay" style="display:none;"></div>
+            </div>
+            <div id="status-golf-1" class="award-status">Points Not Awarded</div>
+            <div class="points-action-bar admin-only">
+                <button onclick="awardGolfPoints(1)" class="points-btn">Award Double Points</button>
+                <button onclick="revokeGolfPoints(1)" class="btn-warning">Rescore / Reset Points</button>
+            </div>
+        </div>
+
+        <div class="class-section c2-border">
+            <h3 class="title-c2">Vernon Bot-Bot Golf</h3>
+            <div class="bracket-wrapper" id="golf-wrapper-2">
+                <table>
+                    <thead><tr><th>Team</th><th>Score (Strokes)</th></tr></thead>
+                    <tbody id="golfBody2"></tbody>
+                </table>
+                <div id="podium-overlay-golf-2" class="event-podium-overlay" style="display:none;"></div>
+            </div>
+            <div id="status-golf-2" class="award-status">Points Not Awarded</div>
+            <div class="points-action-bar admin-only">
+                <button onclick="awardGolfPoints(2)" class="points-btn">Award Double Points</button>
+                <button onclick="revokeGolfPoints(2)" class="btn-warning">Rescore / Reset Points</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
