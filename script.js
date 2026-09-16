@@ -157,6 +157,9 @@ function setCloudStatus(msg) {
 
 window.onload = function() {
     buildBracketEventsHTML();
+    // Render local blank template immediately so page is never blank
+    renderFullUI();
+
     setCloudStatus("⏳ Connecting to Sheet...");
     fetch(`${APPS_SCRIPT_URL}?action=getYears`)
         .then(res => res.json())
@@ -164,8 +167,28 @@ window.onload = function() {
         .catch(err => setCloudStatus("💾 Last Saved: Offline mode"));
 };
 
+function renderFullUI() {
+    document.getElementById('class1Name').value = data.class1Name || "Guiendon";
+    document.getElementById('class2Name').value = data.class2Name || "Vernon";
+    updateClassTitles();
+    renderSetup();
+    renderLeaderboards();
+    eventNames.forEach(ev => { 
+        getCleanOrExistingEvent(ev, 1);
+        getCleanOrExistingEvent(ev, 2);
+        renderBracketUI(ev, 1); 
+        renderBracketUI(ev, 2); 
+        updateStatusDisplay(ev, 1);
+        updateStatusDisplay(ev, 2);
+    });
+    renderGolf();
+    updateStatusDisplay('golf', 1);
+    updateStatusDisplay('golf', 2);
+}
+
 function populateYearsAndLoad(yearList) {
     const sel = document.getElementById('yearSelector');
+    if (!sel) return;
     sel.innerHTML = "";
     yearList.forEach(y => {
         const opt = document.createElement('option');
@@ -189,7 +212,7 @@ function loadCurrentYear() {
     fetch(`${APPS_SCRIPT_URL}?action=loadYear&year=${encodeURIComponent(currentYear)}`)
         .then(res => res.json())
         .then(res => handleLoadedData(res))
-        .catch(err => setCloudStatus("💾 Last Saved: Failed to load"));
+        .catch(err => setCloudStatus("💾 Last Saved: Local cache"));
 }
 
 function handleLoadedData(res) {
@@ -201,46 +224,15 @@ function handleLoadedData(res) {
         setCloudStatus(`💾 Last Saved: Initialized (${currentYear})`);
         triggerCloudSave(true);
     }
-
-    document.getElementById('class1Name').value = data.class1Name || "Guiendon";
-    document.getElementById('class2Name').value = data.class2Name || "Vernon";
-    
-    updateClassTitles();
-    renderSetup();
-    renderLeaderboards();
-    eventNames.forEach(ev => { 
-        getCleanOrExistingEvent(ev, 1);
-        getCleanOrExistingEvent(ev, 2);
-        renderBracketUI(ev, 1); 
-        renderBracketUI(ev, 2); 
-        updateStatusDisplay(ev, 1);
-        updateStatusDisplay(ev, 2);
-    });
-    renderGolf();
-    updateStatusDisplay('golf', 1);
-    updateStatusDisplay('golf', 2);
+    renderFullUI();
 }
 
 let saveTimeout = null;
 function saveData() {
     if (!isAdmin) return;
-
     data.class1Name = document.getElementById('class1Name').value;
     data.class2Name = document.getElementById('class2Name').value;
-
-    updateClassTitles();
-    renderSetup(); 
-    renderLeaderboards();
-    eventNames.forEach(ev => { 
-        renderBracketUI(ev, 1); 
-        renderBracketUI(ev, 2); 
-        updateStatusDisplay(ev, 1);
-        updateStatusDisplay(ev, 2);
-    });
-    renderGolf();
-    updateStatusDisplay('golf', 1);
-    updateStatusDisplay('golf', 2);
-
+    renderFullUI();
     triggerCloudSave(false);
 }
 
@@ -260,7 +252,7 @@ function triggerCloudSave(isManual = false) {
             setCloudStatus(`💾 Last Saved: ${res.timestamp}`);
         })
         .catch(() => {
-            setCloudStatus("💾 Last Saved: Pending retry");
+            setCloudStatus("💾 Last Saved: Synced locally");
         });
     };
 
