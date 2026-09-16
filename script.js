@@ -1,7 +1,6 @@
-// GOOGLE APPS SCRIPT BACKEND ENDPOINT
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylTS6d_ZhPsDYmUqkVglkBPrS2dJVBNwDSehM2oCIqAb-FVXLC5AHRcTqPfJZF7G9m/exec";
 
-const TEACHER_PIN = "1234";
+const TEACHER_PIN = "111114";
 let isAdmin = false;
 
 function toggleAdmin() {
@@ -33,7 +32,6 @@ function toggleAdmin() {
     }
 }
 
-// Canva Embeds
 const canvaEmbeds = {
     'tug': `<div style="position: relative; width: 100%; height: 0; padding-top: 56.25%; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px;"><iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none;" src="https://www.canva.com/design/DAGPuw06Vbg/MofxFeGW2qlrcQ-WRj0Byw/view?embed" allowfullscreen></iframe></div>`,
     'dash': `<div style="position: relative; width: 100%; height: 0; padding-top: 56.25%; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px;"><iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none;" src="https://www.canva.com/design/DAGQY6uZjUo/Cj8F5p4lOJfDfDARLoPkpQ/view?embed" allowfullscreen></iframe></div>`,
@@ -64,9 +62,9 @@ function buildBracketEventsHTML() {
             ${embedHTML}
 
             <div class="split-view">
-                <!-- Class 1 -->
+                <!-- Class 1 (Guiendon) -->
                 <div class="class-section c1-border">
-                    <h3 class="title-c1">Class 1</h3>
+                    <h3 class="title-c1">Guiendon</h3>
                     
                     <div class="timer-controls">
                         <strong>Bracket Timer:</strong>
@@ -91,9 +89,9 @@ function buildBracketEventsHTML() {
                     </div>
                 </div>
 
-                <!-- Class 2 -->
+                <!-- Class 2 (Vernon) -->
                 <div class="class-section c2-border">
-                    <h3 class="title-c2">Class 2</h3>
+                    <h3 class="title-c2">Vernon</h3>
                     
                     <div class="timer-controls">
                         <strong>Bracket Timer:</strong>
@@ -153,7 +151,8 @@ const activeTimers = {};
 const manualModes = {}; 
 
 function setCloudStatus(msg) {
-    document.getElementById('cloud-indicator').innerHTML = msg;
+    const el = document.getElementById('cloud-indicator');
+    if (el) el.innerHTML = msg;
 }
 
 window.onload = function() {
@@ -162,7 +161,7 @@ window.onload = function() {
     fetch(`${APPS_SCRIPT_URL}?action=getYears`)
         .then(res => res.json())
         .then(res => populateYearsAndLoad(res.years))
-        .catch(err => setCloudStatus("❌ Connection error"));
+        .catch(err => setCloudStatus("💾 Last Saved: Offline mode"));
 };
 
 function populateYearsAndLoad(yearList) {
@@ -190,17 +189,17 @@ function loadCurrentYear() {
     fetch(`${APPS_SCRIPT_URL}?action=loadYear&year=${encodeURIComponent(currentYear)}`)
         .then(res => res.json())
         .then(res => handleLoadedData(res))
-        .catch(err => setCloudStatus("❌ Failed to load year"));
+        .catch(err => setCloudStatus("💾 Last Saved: Failed to load"));
 }
 
 function handleLoadedData(res) {
     if (res.status === "success" && res.data) {
         data = res.data;
-        setCloudStatus(`☁️ Synced to Sheet (${currentYear})`);
+        setCloudStatus(`💾 Last Saved: Synced (${currentYear})`);
     } else {
         data = createBlankTemplate();
-        setCloudStatus(`☁️ New Year Initialized (${currentYear})`);
-        saveData();
+        setCloudStatus(`💾 Last Saved: Initialized (${currentYear})`);
+        triggerCloudSave(true);
     }
 
     document.getElementById('class1Name').value = data.class1Name || "Guiendon";
@@ -242,17 +241,39 @@ function saveData() {
     updateStatusDisplay('golf', 1);
     updateStatusDisplay('golf', 2);
 
-    setCloudStatus("⏳ Saving to Sheet...");
+    triggerCloudSave(false);
+}
+
+function triggerCloudSave(isManual = false) {
+    if (!isAdmin) return;
+    setCloudStatus(isManual ? "⏳ Saving now..." : "⏳ Autosaving...");
+
     if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
+
+    const execute = () => {
         fetch(APPS_SCRIPT_URL, {
             method: "POST",
             body: JSON.stringify({ action: "saveYear", year: currentYear, data: data })
         })
         .then(res => res.json())
-        .then(res => setCloudStatus(`☁️ Saved (${res.timestamp})`))
-        .catch(() => setCloudStatus("❌ Cloud save failed"));
-    }, 800);
+        .then(res => {
+            setCloudStatus(`💾 Last Saved: ${res.timestamp}`);
+        })
+        .catch(() => {
+            setCloudStatus("💾 Last Saved: Pending retry");
+        });
+    };
+
+    if (isManual) {
+        execute();
+    } else {
+        saveTimeout = setTimeout(execute, 800);
+    }
+}
+
+function forceSaveData() {
+    if (!isAdmin) return;
+    triggerCloudSave(true);
 }
 
 function promptArchiveYear() {
@@ -268,13 +289,13 @@ function promptArchiveYear() {
     .then(res => {
         if (res.status === "exists") {
             alert(res.message);
-            setCloudStatus(`☁️ Synced to Sheet (${currentYear})`);
+            setCloudStatus(`💾 Last Saved: Synced (${currentYear})`);
         } else {
             alert(`Created year ${res.year} successfully!`);
             populateYearsAndLoad(res.years);
         }
     })
-    .catch(() => setCloudStatus("❌ Failed to create year"));
+    .catch(() => setCloudStatus("💾 Last Saved: Failed archive"));
 }
 
 function formatMs(totalMs, includeMinutes = true) {
@@ -861,15 +882,6 @@ function shuffleArray(array) {
     return array;
 }
 
-function getTeamNameDisplay(idData) {
-    if (idData === "?") return "???"; 
-    if (idData === 'BYE' || idData === '') return idData === '' ? '...' : 'BYE';
-    if (Array.isArray(idData)) {
-        return idData.map(i => i === 'BYE' ? 'BYE' : (data.teams.find(t => t.id === i)?.name || "Deleted")).join(' & ');
-    }
-    return data.teams.find(t => t.id === idData)?.name || "Deleted";
-}
-
 function clearBracket(eventId, classId) {
     if (!isAdmin) return;
     manualModes[`${eventId}-${classId}`] = false;
@@ -1006,7 +1018,6 @@ function toggleDQ(event, eventId, classId, matchId, slotIdx) {
     saveData();
 }
 
-// RENDERS BRACKETS AND CONTROLS FOR BOTH CLASSES
 function renderBracketUI(eventId, classId) {
     const container = document.getElementById(`bracket-${eventId}-${classId}`);
     const controlsContainer = document.getElementById(`controls-${eventId}-${classId}`);
@@ -1016,7 +1027,6 @@ function renderBracketUI(eventId, classId) {
     const isManual = !!manualModes[`${eventId}-${classId}`];
     const isRevealing = ev.isRevealing === true;
 
-    // Fixed control rendering for both class 1 & 2
     if (controlsContainer) {
         if (isManual) {
             controlsContainer.innerHTML = `
