@@ -159,14 +159,14 @@ window.onload = function() {
     buildBracketEventsHTML();
     renderFullUI();
 
+    const yInput = document.getElementById('yearInput');
+    if (yInput) currentYear = yInput.value.trim() || "2026";
+
     setCloudStatus("⏳ Connecting to Sheet...");
     loadCurrentYear();
 };
 
 function renderFullUI() {
-    const yInput = document.getElementById('yearInput');
-    if (yInput) yInput.value = currentYear;
-
     document.getElementById('class1Name').value = data.class1Name || "Guiendon";
     document.getElementById('class2Name').value = data.class2Name || "Vernon";
     updateClassTitles();
@@ -961,7 +961,7 @@ function lockInManualBracket(eventId, classId, isRelay) {
             const p2a = getVal(`sel-${eventId}-${classId}-${mId}-1-a`), p2b = getVal(`sel-${eventId}-${classId}-${mId}-1-b`);
             ev[mId] = [
                 (p1a === "BYE" && p1b === "BYE") ? "BYE" : ((p1a === "" && p1b === "") ? "" : [p1a || "BYE", p1b || "BYE"]),
-                (p2a === "BYE" && p2b === "BYE") ? "BYE" : ((p2a === "" && p2b === "") ? "" : [p2a || "BYE", p2b || "BYE'])
+                (p2a === "BYE" && p2b === "BYE") ? "BYE" : ((p2a === "" && p2b === "") ? "" : [p2a || "BYE", p2b || "BYE"])
             ];
         }
     }
@@ -1301,7 +1301,7 @@ function awardGolfPoints(classId) {
 function revokeGolfPoints(classId) {
     if (!isAdmin) return;
     if (!data.awards[classId]?.['golf']) return;
-    if (confirm("Reset points for this class?")) {
+    if (confirm("Reset golf points for this class?")) {
         undoEventPoints('golf', classId);
         saveData();
     }
