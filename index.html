@@ -8,9 +8,15 @@
 </head>
 <body>
 
-<!-- TOP BAR: TEACHER LOGIN BUTTON -->
 <div class="top-bar">
-    <div></div>
+    <div class="year-controls">
+        <label for="yearSelector" style="font-weight: bold; font-size: 14px;">Tournament Year:</label>
+        <select id="yearSelector" onchange="changeYear(this.value)"></select>
+        <button onclick="promptArchiveYear()" class="admin-only" style="background-color: #8e44ad; padding: 6px 12px; font-size: 12px;">📁 Archive & Start New Year</button>
+    </div>
+
+    <div id="cloud-indicator" class="cloud-status">☁️ Connecting to Google Sheet...</div>
+
     <div>
         <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdmin()">🔒 Teacher Mode</button>
     </div>
@@ -54,17 +60,6 @@
 
 <!-- SETUP TAB -->
 <div id="setup" class="tab-content active-tab">
-    <div class="setup-header-panel admin-only">
-        <div class="year-controls">
-            <label for="yearInput" style="font-weight: bold; font-size: 14px;">Tournament Year / Tab:</label>
-            <input type="text" id="yearInput" value="2026" style="width: 80px; text-align: center; font-weight: bold;">
-            <button onclick="loadCustomYear()" style="background-color: var(--blue); padding: 6px 12px; font-size: 12px; color:white; border:none; border-radius:4px; cursor:pointer;">📂 Load Year</button>
-            <button onclick="promptArchiveYear()" style="background-color: #8e44ad; padding: 6px 12px; font-size: 12px; color:white; border:none; border-radius:4px; cursor:pointer;">📁 Archive as New Year</button>
-            <button onclick="forceSaveData()" style="background-color: var(--green); padding: 6px 12px; font-size: 12px; color:white; border:none; border-radius:4px; cursor:pointer;">💾 Save Now</button>
-        </div>
-        <div id="cloud-indicator" class="cloud-status-badge">💾 Last Saved: Not yet saved</div>
-    </div>
-
     <h2>Setup Classes & Teams</h2>
     <div class="split-view">
         <div class="class-section c1-border">
@@ -128,7 +123,7 @@
     </div>
 </div>
 
-<!-- CONTAINER FOR BRACKET EVENTS -->
+<!-- CONTAINER WHERE SCRIPT RENDERS THE 4 BRACKET EVENTS -->
 <div id="bracket-events-container"></div>
 
 <!-- BOT-BOT GOLF TAB -->
