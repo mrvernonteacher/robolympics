@@ -156,33 +156,44 @@ function setCloudStatus(msg) {
 }
 
 window.onload = function() {
-    buildBracketEventsHTML();
-    renderFullUI();
+    try {
+        buildBracketEventsHTML();
+        renderFullUI();
 
-    const yInput = document.getElementById('yearInput');
-    if (yInput) currentYear = yInput.value.trim() || "2026";
+        const yInput = document.getElementById('yearInput');
+        if (yInput) currentYear = yInput.value.trim() || "2026";
 
-    setCloudStatus("⏳ Connecting to Sheet...");
-    loadCurrentYear();
+        setCloudStatus("⏳ Connecting to Sheet...");
+        loadCurrentYear();
+    } catch (e) {
+        console.error("Startup error:", e);
+    }
 };
 
 function renderFullUI() {
-    document.getElementById('class1Name').value = data.class1Name || "Guiendon";
-    document.getElementById('class2Name').value = data.class2Name || "Vernon";
-    updateClassTitles();
-    renderSetup();
-    renderLeaderboards();
-    eventNames.forEach(ev => { 
-        getCleanOrExistingEvent(ev, 1);
-        getCleanOrExistingEvent(ev, 2);
-        renderBracketUI(ev, 1); 
-        renderBracketUI(ev, 2); 
-        updateStatusDisplay(ev, 1);
-        updateStatusDisplay(ev, 2);
-    });
-    renderGolf();
-    updateStatusDisplay('golf', 1);
-    updateStatusDisplay('golf', 2);
+    try {
+        const c1 = document.getElementById('class1Name');
+        const c2 = document.getElementById('class2Name');
+        if (c1) c1.value = data.class1Name || "Guiendon";
+        if (c2) c2.value = data.class2Name || "Vernon";
+        
+        updateClassTitles();
+        renderSetup();
+        renderLeaderboards();
+        eventNames.forEach(ev => { 
+            getCleanOrExistingEvent(ev, 1);
+            getCleanOrExistingEvent(ev, 2);
+            renderBracketUI(ev, 1); 
+            renderBracketUI(ev, 2); 
+            updateStatusDisplay(ev, 1);
+            updateStatusDisplay(ev, 2);
+        });
+        renderGolf();
+        updateStatusDisplay('golf', 1);
+        updateStatusDisplay('golf', 2);
+    } catch (e) {
+        console.error("Render error:", e);
+    }
 }
 
 function loadCustomYear() {
@@ -216,8 +227,10 @@ function loadCurrentYear() {
 let saveTimeout = null;
 function saveData() {
     if (!isAdmin) return;
-    data.class1Name = document.getElementById('class1Name').value;
-    data.class2Name = document.getElementById('class2Name').value;
+    const c1 = document.getElementById('class1Name');
+    const c2 = document.getElementById('class2Name');
+    if (c1) data.class1Name = c1.value;
+    if (c2) data.class2Name = c2.value;
     renderFullUI();
     triggerCloudSave(false);
 }
@@ -259,7 +272,8 @@ function promptArchiveYear() {
     if (!newYear || newYear.trim() === "") return;
 
     currentYear = newYear.trim();
-    document.getElementById('yearInput').value = currentYear;
+    const yInput = document.getElementById('yearInput');
+    if (yInput) yInput.value = currentYear;
     data = createBlankTemplate();
 
     setCloudStatus("⏳ Creating archive tab...");
