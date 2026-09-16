@@ -8,15 +8,9 @@
 </head>
 <body>
 
+<!-- TOP BAR: ONLY TEACHER LOGIN BUTTON -->
 <div class="top-bar">
-    <div class="year-controls">
-        <label for="yearSelector" style="font-weight: bold; font-size: 14px;">Tournament Year:</label>
-        <select id="yearSelector" onchange="changeYear(this.value)"></select>
-        <button onclick="promptArchiveYear()" class="admin-only" style="background-color: #8e44ad; padding: 6px 12px; font-size: 12px;">📁 Archive & Start New Year</button>
-    </div>
-
-    <div id="cloud-indicator" class="cloud-status">☁️ Connecting to Google Sheet...</div>
-
+    <div></div>
     <div>
         <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdmin()">🔒 Teacher Mode</button>
     </div>
@@ -58,8 +52,18 @@
     </div>
 </div>
 
-<!-- SETUP TAB -->
+<!-- SETUP TAB (YEAR CONTROLS, ARCHIVE & PERSISTENT SAVE STATUS LIVES HERE) -->
 <div id="setup" class="tab-content active-tab">
+    <div class="setup-header-panel admin-only">
+        <div class="year-controls">
+            <label for="yearSelector" style="font-weight: bold; font-size: 14px;">Tournament Year:</label>
+            <select id="yearSelector" onchange="changeYear(this.value)"></select>
+            <button onclick="promptArchiveYear()" style="background-color: #8e44ad; padding: 6px 12px; font-size: 12px; color:white; border:none; border-radius:4px; cursor:pointer;">📁 Archive & Start New Year</button>
+            <button onclick="forceSaveData()" style="background-color: var(--green); padding: 6px 12px; font-size: 12px; color:white; border:none; border-radius:4px; cursor:pointer;">💾 Save Now</button>
+        </div>
+        <div id="cloud-indicator" class="cloud-status-badge">💾 Last Saved: Not yet saved</div>
+    </div>
+
     <h2>Setup Classes & Teams</h2>
     <div class="split-view">
         <div class="class-section c1-border">
