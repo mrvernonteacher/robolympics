@@ -66,7 +66,7 @@ function buildBracketEventsHTML() {
             <div class="split-view">
                 <!-- Class 1 -->
                 <div class="class-section c1-border">
-                    <h3 class="title-c1">Class 1</h3>
+                    <h3 class="title-c1">Guiendon</h3>
                     
                     <div class="timer-controls">
                         <strong>Bracket Timer:</strong>
@@ -93,7 +93,7 @@ function buildBracketEventsHTML() {
 
                 <!-- Class 2 -->
                 <div class="class-section c2-border">
-                    <h3 class="title-c2">Class 2</h3>
+                    <h3 class="title-c2">Vernon</h3>
                     
                     <div class="timer-controls">
                         <strong>Bracket Timer:</strong>
@@ -153,20 +153,54 @@ const activeTimers = {};
 const manualModes = {}; 
 
 function setCloudStatus(msg) {
-    document.getElementById('cloud-indicator').innerHTML = msg;
+    const el = document.getElementById('cloud-indicator');
+    if (el) el.innerHTML = msg;
 }
 
 window.onload = function() {
-    buildBracketEventsHTML();
-    setCloudStatus("⏳ Connecting to Sheet...");
-    fetch(`${APPS_SCRIPT_URL}?action=getYears`)
-        .then(res => res.json())
-        .then(res => populateYearsAndLoad(res.years))
-        .catch(err => setCloudStatus("❌ Connection error"));
+    try {
+        buildBracketEventsHTML();
+        renderFullUI();
+
+        setCloudStatus("⏳ Connecting to Sheet...");
+        fetch(`${APPS_SCRIPT_URL}?action=getYears`)
+            .then(res => res.json())
+            .then(res => populateYearsAndLoad(res.years))
+            .catch(() => setCloudStatus("💾 Synced Locally (Offline)"));
+    } catch (e) {
+        console.error("Startup error:", e);
+    }
 };
+
+function renderFullUI() {
+    try {
+        const c1 = document.getElementById('class1Name');
+        const c2 = document.getElementById('class2Name');
+        if (c1) c1.value = data.class1Name || "Guiendon";
+        if (c2) c2.value = data.class2Name || "Vernon";
+        
+        updateClassTitles();
+        renderSetup();
+        renderLeaderboards();
+        eventNames.forEach(ev => { 
+            getCleanOrExistingEvent(ev, 1);
+            getCleanOrExistingEvent(ev, 2);
+            renderBracketUI(ev, 1); 
+            renderBracketUI(ev, 2); 
+            updateStatusDisplay(ev, 1);
+            updateStatusDisplay(ev, 2);
+        });
+        renderGolf();
+        updateStatusDisplay('golf', 1);
+        updateStatusDisplay('golf', 2);
+    } catch (e) {
+        console.error("Render error:", e);
+    }
+}
 
 function populateYearsAndLoad(yearList) {
     const sel = document.getElementById('yearSelector');
+    if (!sel) return;
     sel.innerHTML = "";
     yearList.forEach(y => {
         const opt = document.createElement('option');
@@ -190,7 +224,10 @@ function loadCurrentYear() {
     fetch(`${APPS_SCRIPT_URL}?action=loadYear&year=${encodeURIComponent(currentYear)}`)
         .then(res => res.json())
         .then(res => handleLoadedData(res))
-        .catch(err => setCloudStatus("❌ Failed to load year"));
+        .catch(() => {
+            setCloudStatus("💾 Synced Locally");
+            renderFullUI();
+        });
 }
 
 function handleLoadedData(res) {
@@ -199,48 +236,22 @@ function handleLoadedData(res) {
         setCloudStatus(`☁️ Synced to Sheet (${currentYear})`);
     } else {
         data = createBlankTemplate();
-        setCloudStatus(`☁️ New Year Initialized (${currentYear})`);
+        setCloudStatus(`☁️ Initialized (${currentYear})`);
         saveData();
     }
-
-    document.getElementById('class1Name').value = data.class1Name || "Guiendon";
-    document.getElementById('class2Name').value = data.class2Name || "Vernon";
-    
-    updateClassTitles();
-    renderSetup();
-    renderLeaderboards();
-    eventNames.forEach(ev => { 
-        getCleanOrExistingEvent(ev, 1);
-        getCleanOrExistingEvent(ev, 2);
-        renderBracketUI(ev, 1); 
-        renderBracketUI(ev, 2); 
-        updateStatusDisplay(ev, 1);
-        updateStatusDisplay(ev, 2);
-    });
-    renderGolf();
-    updateStatusDisplay('golf', 1);
-    updateStatusDisplay('golf', 2);
+    renderFullUI();
 }
 
 let saveTimeout = null;
 function saveData() {
     if (!isAdmin) return;
 
-    data.class1Name = document.getElementById('class1Name').value;
-    data.class2Name = document.getElementById('class2Name').value;
+    const c1 = document.getElementById('class1Name');
+    const c2 = document.getElementById('class2Name');
+    if (c1) data.class1Name = c1.value;
+    if (c2) data.class2Name = c2.value;
 
-    updateClassTitles();
-    renderSetup(); 
-    renderLeaderboards();
-    eventNames.forEach(ev => { 
-        renderBracketUI(ev, 1); 
-        renderBracketUI(ev, 2); 
-        updateStatusDisplay(ev, 1);
-        updateStatusDisplay(ev, 2);
-    });
-    renderGolf();
-    updateStatusDisplay('golf', 1);
-    updateStatusDisplay('golf', 2);
+    renderFullUI();
 
     setCloudStatus("⏳ Saving to Sheet...");
     if (saveTimeout) clearTimeout(saveTimeout);
@@ -251,7 +262,7 @@ function saveData() {
         })
         .then(res => res.json())
         .then(res => setCloudStatus(`☁️ Saved (${res.timestamp})`))
-        .catch(() => setCloudStatus("❌ Cloud save failed"));
+        .catch(() => setCloudStatus("💾 Saved Locally"));
     }, 800);
 }
 
@@ -407,10 +418,19 @@ function buildPodiumHTML(gold, silver, bronze, title = "Event Champions", isOver
     `;
 }
 
+function getTeamNameDisplay(idData) {
+    if (idData === "?") return "???"; 
+    if (idData === 'BYE' || idData === '') return idData === '' ? '...' : 'BYE';
+    if (Array.isArray(idData)) {
+        return idData.map(i => i === 'BYE' ? 'BYE' : (data.teams.find(t => t.id === i)?.name || "Deleted")).join(' & ');
+    }
+    return data.teams.find(t => t.id === idData)?.name || "Deleted";
+}
+
 let currentMatchContext = null;
 let modalTimerInterval = null;
-let dualSplitTimes = { 0: null, 1: null };
-let dualSplitStrings = { 0: "", 1: "" };
+let dualRaceSplits = [];
+let dualRaceSplitStrings = [];
 
 function openMatchTimer(eventId, classId, matchId, matchTitle) {
     if (!isAdmin) return;
@@ -419,13 +439,25 @@ function openMatchTimer(eventId, classId, matchId, matchTitle) {
     if (!isValidTeam(t1) || !isValidTeam(t2)) return;
 
     currentMatchContext = { eventId, classId, matchId, matchTitle, t1, t2 };
-    dualSplitTimes = { 0: null, 1: null };
-    dualSplitStrings = { 0: "", 1: "" };
+    dualRaceSplits = [];
+    dualRaceSplitStrings = [];
     clearConfetti();
 
     const modal = document.getElementById('match-modal');
     document.getElementById('modal-event-name').innerText = `${eventId.toUpperCase()} - ${matchTitle}`;
-    document.getElementById('modal-matchup-title').innerText = `${getTeamNameDisplay(t1)} VS ${getTeamNameDisplay(t2)}`;
+    
+    // Highlight blue and red lanes in modal
+    const hasLanes = ['tug', 'dash', 'relay'].includes(eventId);
+    if (hasLanes) {
+        document.getElementById('modal-matchup-title').innerHTML = `
+            <span style="color:var(--blue);">🔵 ${getTeamNameDisplay(t1)}</span>
+            <span style="color:#666; font-size:16px;"> VS </span>
+            <span style="color:var(--red);">🔴 ${getTeamNameDisplay(t2)}</span>
+        `;
+    } else {
+        document.getElementById('modal-matchup-title').innerText = `${getTeamNameDisplay(t1)} VS ${getTeamNameDisplay(t2)}`;
+    }
+
     document.getElementById('modal-actions-area').style.display = 'none';
     document.getElementById('modal-clock-controls').style.display = 'none';
     modal.style.display = 'flex';
@@ -454,13 +486,16 @@ function startActiveMatchClock(eventId) {
 
     if (isDualRace) {
         const startTime = Date.now();
+        dualRaceSplits = [];
+        dualRaceSplitStrings = [];
         displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
         clockControls.innerHTML = `
-            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button id="btn-stop-0" class="btn-stop-team" onclick="recordTeamSplit(0, ${startTime})">⏹️ Stop ${getTeamNameDisplay(currentMatchContext.t1)}</button>
-                <button id="btn-stop-1" class="btn-stop-team" onclick="recordTeamSplit(1, ${startTime})">⏹️ Stop ${getTeamNameDisplay(currentMatchContext.t2)}</button>
+            <button id="btn-master-stop" class="btn-single-stop btn-stop-1st" onclick="handleSingleStopPress(${startTime})">
+                ⏹️ STOP 1ST PLACE
+            </button>
+            <div style="margin-top: 14px;">
+                <button class="btn-early-stop" onclick="finishDualRaceEarly(${startTime})">🏁 End Race Early / DNF</button>
             </div>
-            <div style="margin-top: 12px;"><button class="btn-early-stop" onclick="finishDualRaceEarly(${startTime})">🏁 End Race Early</button></div>
         `;
         modalTimerInterval = setInterval(() => {
             displayArea.innerHTML = `<div class="clock-active">${formatMs(Date.now() - startTime, true)}</div>`;
@@ -470,7 +505,7 @@ function startActiveMatchClock(eventId) {
         const startTime = Date.now();
         displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
         clockControls.innerHTML = `
-            <button class="btn-stop-team" style="font-size:18px; padding:12px 28px;" onclick="stopSingleAthalon(${startTime})">⏹️ STOP TIMER</button>
+            <button class="btn-single-stop btn-stop-1st" onclick="stopSingleAthalon(${startTime})">⏹️ STOP TIMER</button>
             <div style="margin-top: 10px;"><button class="btn-early-stop" onclick="stopSingleAthalon(${startTime})">🏁 End Match Early</button></div>
         `;
         modalTimerInterval = setInterval(() => {
@@ -478,9 +513,10 @@ function startActiveMatchClock(eventId) {
         }, 30);
 
     } else {
+        // Tug-o-War countdown (30s)
         const endTime = Date.now() + 30000;
         displayArea.innerHTML = `<div class="clock-active">30.00s</div>`;
-        clockControls.innerHTML = `<button class="btn-early-stop" style="font-size: 14px; padding: 10px 20px;" onclick="finishCountdownEarly(${endTime})">🏁 End Match Early</button>`;
+        clockControls.innerHTML = `<button class="btn-single-stop btn-stop-1st" onclick="finishCountdownEarly(${endTime})">⏹️ STOP / WINNER DECIDED</button>`;
         modalTimerInterval = setInterval(() => {
             const remaining = endTime - Date.now();
             if (remaining <= 0) {
@@ -494,38 +530,101 @@ function startActiveMatchClock(eventId) {
     }
 }
 
-function recordTeamSplit(slotIdx, startTime) {
-    if (dualSplitTimes[slotIdx] !== null) return;
-    const splitMs = Date.now() - startTime;
-    dualSplitTimes[slotIdx] = splitMs;
-    dualSplitStrings[slotIdx] = formatMs(splitMs, false);
-    playBeep(580, 0.2);
+function handleSingleStopPress(startTime) {
+    const elapsed = Date.now() - startTime;
+    if (dualRaceSplits.length === 0) {
+        // 1st press: Record winning time
+        dualRaceSplits.push(elapsed);
+        dualRaceSplitStrings.push(formatMs(elapsed, false));
+        playBeep(620, 0.15);
 
-    const btn = document.getElementById(`btn-stop-${slotIdx}`);
-    const teamName = getTeamNameDisplay(slotIdx === 0 ? currentMatchContext.t1 : currentMatchContext.t2);
-    if (btn) {
-        btn.className = "btn-stop-team btn-team-stopped";
-        btn.innerText = `✓ ${teamName}: ${dualSplitStrings[slotIdx]}`;
-    }
-    if (dualSplitTimes[0] !== null && dualSplitTimes[1] !== null) {
+        const btn = document.getElementById('btn-master-stop');
+        if (btn) {
+            btn.className = "btn-single-stop btn-stop-2nd";
+            btn.innerHTML = `⏹️ STOP 2ND PLACE<br><span style="font-size:13px; font-weight:normal; opacity:0.9;">1st Place: <strong>${dualRaceSplitStrings[0]}</strong></span>`;
+        }
+    } else if (dualRaceSplits.length === 1) {
+        // 2nd press: Record 2nd place time and trigger winner selection
+        dualRaceSplits.push(elapsed);
+        dualRaceSplitStrings.push(formatMs(elapsed, false));
+        playBeep(840, 0.2);
         if (modalTimerInterval) clearInterval(modalTimerInterval);
-        setTimeout(() => triggerCheckeredFlagPrompt(null, true), 250);
+
+        triggerDualRaceWinnerSelection();
     }
 }
 
 function finishDualRaceEarly(startTime) {
     if (modalTimerInterval) clearInterval(modalTimerInterval);
     const currentMs = Date.now() - startTime;
-    const currentElapsed = formatMs(currentMs, false);
-    if (dualSplitTimes[0] === null && dualSplitTimes[1] === null) {
-        dualSplitTimes[0] = currentMs; dualSplitTimes[1] = currentMs + 10;
-        dualSplitStrings[0] = currentElapsed; dualSplitStrings[1] = currentElapsed;
-    } else if (dualSplitTimes[0] === null) {
-        dualSplitTimes[0] = currentMs; dualSplitStrings[0] = currentElapsed;
-    } else if (dualSplitTimes[1] === null) {
-        dualSplitTimes[1] = currentMs; dualSplitStrings[1] = currentElapsed;
+    const currentStr = formatMs(currentMs, false);
+
+    if (dualRaceSplits.length === 0) {
+        dualRaceSplits = [currentMs, currentMs + 50];
+        dualRaceSplitStrings = [currentStr, currentStr];
+    } else if (dualRaceSplits.length === 1) {
+        dualRaceSplits.push(currentMs);
+        dualRaceSplitStrings.push(currentStr);
     }
-    triggerCheckeredFlagPrompt(null, true);
+    triggerDualRaceWinnerSelection();
+}
+
+function triggerDualRaceWinnerSelection() {
+    const displayArea = document.getElementById('modal-display-area');
+    const actionsArea = document.getElementById('modal-actions-area');
+    const clockControls = document.getElementById('modal-clock-controls');
+    const btnContainer = document.getElementById('modal-winner-buttons');
+    const actionsHeading = document.getElementById('modal-actions-heading');
+    clockControls.style.display = 'none';
+
+    const ctx = currentMatchContext;
+    const name1 = getTeamNameDisplay(ctx.t1);
+    const name2 = getTeamNameDisplay(ctx.t2);
+
+    playAirhorn();
+    launchConfetti();
+
+    const diffSec = (Math.abs(dualRaceSplits[0] - dualRaceSplits[1]) / 1000).toFixed(2);
+
+    displayArea.innerHTML = `
+        <div class="flag-box">🏁</div>
+        <div style="font-size:22px; font-weight:bold; color:var(--green); margin-bottom:5px;">RACE FINISHED!</div>
+        <div style="display:flex; justify-content:center; gap:20px; font-size:16px; margin: 5px 0;">
+            <div>🥇 1st Time: <strong style="color:var(--green); font-family:monospace;">${dualRaceSplitStrings[0]}</strong></div>
+            <div>🥈 2nd Time: <strong style="color:#e67e22; font-family:monospace;">${dualRaceSplitStrings[1]}</strong></div>
+        </div>
+        <div style="font-size:13px; color:#555;">Margin of victory: +${diffSec}s</div>
+    `;
+
+    actionsHeading.innerText = "WHICH LANE CROSSED FIRST?";
+    btnContainer.innerHTML = `
+        <button class="modal-winner-btn modal-lane-blue" onclick="confirmDualRaceWinner(0)" style="font-size: 17px; padding: 14px;">
+            🔵 BLUE LANE WON: ${name1}<br>
+            <span style="font-size:12px; font-weight:normal; opacity:0.9;">Assigns 1st Place (${dualRaceSplitStrings[0]})</span>
+        </button>
+        <button class="modal-winner-btn modal-lane-red" onclick="confirmDualRaceWinner(1)" style="font-size: 17px; padding: 14px;">
+            🔴 RED LANE WON: ${name2}<br>
+            <span style="font-size:12px; font-weight:normal; opacity:0.9;">Assigns 1st Place (${dualRaceSplitStrings[0]})</span>
+        </button>
+    `;
+    actionsArea.style.display = 'block';
+}
+
+function confirmDualRaceWinner(winnerIdx) {
+    if (!currentMatchContext) return;
+    const { eventId, classId, matchId } = currentMatchContext;
+    const ev = getCleanOrExistingEvent(eventId, classId);
+    if (!ev.times) ev.times = {};
+
+    // 1st place time goes to winner, 2nd place time goes to loser
+    if (winnerIdx === 0) {
+        ev.times[matchId] = { 0: dualRaceSplitStrings[0] || "", 1: dualRaceSplitStrings[1] || "" };
+    } else {
+        ev.times[matchId] = { 0: dualRaceSplitStrings[1] || "", 1: dualRaceSplitStrings[0] || "" };
+    }
+
+    advanceTeam(eventId, classId, matchId, winnerIdx);
+    closeMatchModal();
 }
 
 function stopSingleAthalon(startTime) {
@@ -539,60 +638,45 @@ function finishCountdownEarly(endTime) {
     triggerCheckeredFlagPrompt((elapsed / 1000).toFixed(2) + "s");
 }
 
-function triggerCheckeredFlagPrompt(timeText, isDualRace = false) {
+function triggerCheckeredFlagPrompt(timeText) {
     const displayArea = document.getElementById('modal-display-area');
     const actionsArea = document.getElementById('modal-actions-area');
     const clockControls = document.getElementById('modal-clock-controls');
     const btnContainer = document.getElementById('modal-winner-buttons');
+    const actionsHeading = document.getElementById('modal-actions-heading');
     clockControls.style.display = 'none';
 
     const ctx = currentMatchContext;
     const name1 = getTeamNameDisplay(ctx.t1);
     const name2 = getTeamNameDisplay(ctx.t2);
 
-    let timesSummaryHTML = "";
-    let autoWinnerIdx = null;
-
-    if (isDualRace && dualSplitTimes[0] !== null && dualSplitTimes[1] !== null) {
-        autoWinnerIdx = dualSplitTimes[0] <= dualSplitTimes[1] ? 0 : 1;
-        const diffSec = (Math.abs(dualSplitTimes[0] - dualSplitTimes[1]) / 1000).toFixed(2);
-        const winnerName = autoWinnerIdx === 0 ? name1 : name2;
-        playAirhorn();
-        launchConfetti();
-        timesSummaryHTML = `
-            <div class="fanfare-banner">🎉 WINNER: ${winnerName}! 🎉<div class="fanfare-sub">Margin of victory: +${diffSec}s</div></div>
-            <div style="display: flex; justify-content: space-around; width: 100%; margin: 6px 0; font-size: 15px;">
-                <div>${name1}: <strong style="color:var(--blue); font-family:monospace;">${dualSplitStrings[0]}</strong></div>
-                <div>${name2}: <strong style="color:var(--blue); font-family:monospace;">${dualSplitStrings[1]}</strong></div>
-            </div>`;
-    } else if (timeText) {
-        playBeep(660, 0.4);
-        timesSummaryHTML = `<div style="font-size:18px; font-weight:bold; color:#333; margin-top:5px;">Time: ${timeText}</div>`;
-    }
-
-    displayArea.innerHTML = `<div class="flag-box">🏁</div><div style="font-size:20px; font-weight:bold; color:var(--red);">MATCH FINISHED!</div>${timesSummaryHTML}`;
-
-    const isWin0 = autoWinnerIdx === 0;
-    const isWin1 = autoWinnerIdx === 1;
-    btnContainer.innerHTML = `
-        <button class="modal-winner-btn ${isWin0 ? 'auto-champion' : ''}" onclick="selectModalWinner(0, ${isDualRace})">
-            ${isWin0 ? '⭐ [WINNER CONFIRMED] ' : ''}🏆 ${name1} ${isDualRace && dualSplitStrings[0] ? `(${dualSplitStrings[0]})` : ''}
-        </button>
-        <button class="modal-winner-btn ${isWin1 ? 'auto-champion' : ''}" onclick="selectModalWinner(1, ${isDualRace})">
-            ${isWin1 ? '⭐ [WINNER CONFIRMED] ' : ''}🏆 ${name2} ${isDualRace && dualSplitStrings[1] ? `(${dualSplitStrings[1]})` : ''}
-        </button>
+    playBeep(660, 0.4);
+    displayArea.innerHTML = `
+        <div class="flag-box">🏁</div>
+        <div style="font-size:20px; font-weight:bold; color:var(--red);">MATCH FINISHED!</div>
+        ${timeText ? `<div style="font-size:18px; font-weight:bold; color:#333; margin-top:5px;">Time: ${timeText}</div>` : ''}
     `;
+
+    actionsHeading.innerText = "SELECT MATCH WINNER:";
+
+    // Tug-o-war lane colored buttons
+    if (ctx.eventId === 'tug') {
+        btnContainer.innerHTML = `
+            <button class="modal-winner-btn modal-lane-blue" onclick="selectModalWinner(0)">🔵 BLUE LANE: ${name1}</button>
+            <button class="modal-winner-btn modal-lane-red" onclick="selectModalWinner(1)">🔴 RED LANE: ${name2}</button>
+        `;
+    } else {
+        btnContainer.innerHTML = `
+            <button class="modal-winner-btn" onclick="selectModalWinner(0)">🏆 ${name1}</button>
+            <button class="modal-winner-btn" onclick="selectModalWinner(1)">🏆 ${name2}</button>
+        `;
+    }
     actionsArea.style.display = 'block';
 }
 
-function selectModalWinner(slotIdx, isDualRace = false) {
+function selectModalWinner(slotIdx) {
     if (!currentMatchContext) return;
     const { eventId, classId, matchId } = currentMatchContext;
-    if (isDualRace) {
-        const ev = getCleanOrExistingEvent(eventId, classId);
-        if (!ev.times) ev.times = {};
-        ev.times[matchId] = { 0: dualSplitStrings[0] || "", 1: dualSplitStrings[1] || "" };
-    }
     advanceTeam(eventId, classId, matchId, slotIdx);
     closeMatchModal();
 }
@@ -861,15 +945,6 @@ function shuffleArray(array) {
     return array;
 }
 
-function getTeamNameDisplay(idData) {
-    if (idData === "?") return "???"; 
-    if (idData === 'BYE' || idData === '') return idData === '' ? '...' : 'BYE';
-    if (Array.isArray(idData)) {
-        return idData.map(i => i === 'BYE' ? 'BYE' : (data.teams.find(t => t.id === i)?.name || "Deleted")).join(' & ');
-    }
-    return data.teams.find(t => t.id === idData)?.name || "Deleted";
-}
-
 function clearBracket(eventId, classId) {
     if (!isAdmin) return;
     manualModes[`${eventId}-${classId}`] = false;
@@ -1015,8 +1090,8 @@ function renderBracketUI(eventId, classId) {
     const isRelay = eventId === 'relay';
     const isManual = !!manualModes[`${eventId}-${classId}`];
     const isRevealing = ev.isRevealing === true;
+    const hasLanes = ['tug', 'dash', 'relay'].includes(eventId);
 
-    // Fixed control rendering for both class 1 & 2
     if (controlsContainer) {
         if (isManual) {
             controlsContainer.innerHTML = `
@@ -1091,6 +1166,11 @@ function renderBracketUI(eventId, classId) {
         if (currentVal === "?") classes += " suspense";
         if (isRevealing || currentVal === "BYE" || currentVal === "" || isManual || isDQ || !isAdmin) classes += " locked";
 
+        // Lane border indicators for Tug, Dash, and Relay
+        if (hasLanes && hasTeam) {
+            classes += slotIdx === 0 ? " lane-blue-border" : " lane-red-border";
+        }
+
         let medalTag = "";
         if (isDQ) {
             classes += " dq-active";
@@ -1118,19 +1198,28 @@ function renderBracketUI(eventId, classId) {
             if (didLoseThisMatch) classes += " lost-team";
         }
 
+        // Visual Lane Badges (Blue vs Red)
+        let laneBadgeHTML = "";
+        if (hasLanes && hasTeam) {
+            const laneColor = slotIdx === 0 ? "blue" : "red";
+            const laneLabel = slotIdx === 0 ? "Blue" : "Red";
+            laneBadgeHTML = `<span class="lane-badge lane-badge-${laneColor}">${laneLabel}</span>`;
+        }
+
         const showFlag = !isRevealing && !isManual && hasTeam && isAdmin;
         const recordedTime = ev.times?.[mId]?.[slotIdx] || "";
         const showTimeBox = hasTeam && !isManual && !isRevealing && ['dash', 'relay', 'athalon'].includes(eventId);
 
         return `
-        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}', ${classId}, '${mId}', ${slotIdx})"` : ''}>
+        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}',${classId}, '${mId}',${slotIdx})"` : ''}>
             <span class="team-name-text">
                 ${isDQ ? '<span class="dq-badge">DQ</span>' : ''}
                 ${medalTag}
+                ${laneBadgeHTML}
                 ${getTeamNameDisplay(currentVal)}
             </span>
             ${showTimeBox ? `
-                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}', ${classId}, '${mId}', ${slotIdx}, this.value)">
+                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}',${classId}, '${mId}',${slotIdx}, this.value)">
             ` : ''}
             ${showFlag ? `
                 <button class="dq-flag-btn ${isDQ ? 'is-dq' : ''}" onclick="toggleDQ(event, '${eventId}', ${classId}, '${mId}', ${slotIdx})" title="${isDQ ? 'Overturn DQ' : 'DQ team'}">🚩</button>
@@ -1147,7 +1236,7 @@ function renderBracketUI(eventId, classId) {
         <div class="match">
             <div class="match-title">
                 <span>${title}</span>
-                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}', ${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
+                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}',${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
             </div>
             ${renderTeamSlot(mId, 0)}
             ${renderTeamSlot(mId, 1)}
