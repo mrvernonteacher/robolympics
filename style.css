@@ -170,35 +170,37 @@ th { background-color: var(--black); color: white; }
 .bracket { display: flex; justify-content: space-between; margin-top: 5px; overflow-x: auto; gap: 5px; min-height: 200px; }
 .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 165px; flex: 1; }
 .match { border: 2px solid #ccc; border-radius: 5px; margin: 5px 0; background: #fafafa; overflow: hidden; }
-.team { padding: 6px; border-bottom: 1px solid #ccc; cursor: pointer; min-height: 26px; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; gap: 4px; box-sizing: border-box; }
+.team { padding: 6px 8px; border-bottom: 1px solid #ccc; cursor: pointer; min-height: 26px; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; gap: 4px; box-sizing: border-box; }
 .team:last-child { border-bottom: none; }
-.team:hover:not(.locked) { background-color: #e0e0e0; }
+.team:hover:not(.locked) { filter: brightness(0.96); }
 .team-name-text { flex-grow: 1; word-break: break-word; }
 .locked { cursor: default; }
 
-/* Red and Blue Lane Styles */
-.lane-blue-border {
-    border-left: 6px solid var(--blue) !important;
+/* Blue & Red Lane Highlighting */
+.lane-blue {
+    background-color: #eef5ff;
+    border-left: 6px solid var(--blue);
 }
-.lane-red-border {
-    border-left: 6px solid var(--red) !important;
+.lane-red {
+    background-color: #fdeeed;
+    border-left: 6px solid var(--red);
 }
-.lane-badge {
-    font-size: 10px;
+
+/* Winner Checkmark and Loser Strike */
+.winner {
+    font-weight: bold;
+}
+.winner-check {
+    color: var(--green);
+    font-size: 14px;
     font-weight: 900;
-    padding: 1px 5px;
-    border-radius: 3px;
-    color: #fff;
     margin-right: 5px;
-    letter-spacing: 0.5px;
     display: inline-block;
-    text-transform: uppercase;
 }
-.lane-badge-blue {
-    background-color: var(--blue);
-}
-.lane-badge-red {
-    background-color: var(--red);
+.lost-team .team-name-text {
+    text-decoration: line-through !important;
+    opacity: 0.45;
+    color: #666;
 }
 
 .match-time-input { width: 60px; padding: 2px 4px; font-size: 10px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #bbb; border-radius: 3px; background: #fff; color: #111; margin-right: 3px; }
@@ -207,20 +209,16 @@ th { background-color: var(--black); color: white; }
 .dq-flag-btn { background: transparent; border: none; cursor: pointer; padding: 0 4px; font-size: 14px; line-height: 1; opacity: 0.35; filter: grayscale(100%); transition: transform 0.15s, opacity 0.15s, filter 0.15s; }
 .dq-flag-btn:hover { opacity: 1; filter: grayscale(0%); transform: scale(1.3); }
 .dq-flag-btn.is-dq { opacity: 1; filter: grayscale(0%); transform: scale(1.15); }
-.dq-active { background-color: #fbeae8 !important; border-color: #e74c3c !important; }
+.dq-active { background-color: #fbeae8 !important; border-left: 6px solid #e74c3c !important; border-color: #e74c3c !important; }
 .dq-active .team-name-text { text-decoration: line-through !important; color: #c0392b !important; font-weight: bold !important; }
 .dq-badge { background-color: var(--red); color: white; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; margin-right: 5px; letter-spacing: 0.5px; text-decoration: none !important; display: inline-block; }
 
-.lost-team .team-name-text { text-decoration: line-through !important; opacity: 0.45; color: #666; }
-.winner { background-color: var(--green); color: white; font-weight: bold; }
-.winner .team-name-text { color: white; }
-.winner .match-time-input { background: #e8f8f5; border-color: #117a65; }
-
-.medal-gold { background: linear-gradient(135deg, #fff3b0 0%, #ffd700 50%, #cca000 100%) !important; color: #4a3400 !important; font-weight: 900 !important; border-color: #cca000 !important; box-shadow: inset 0 0 6px rgba(255, 215, 0, 0.7); }
+/* Medals override lane backgrounds */
+.medal-gold { background: linear-gradient(135deg, #fff3b0 0%, #ffd700 50%, #cca000 100%) !important; color: #4a3400 !important; font-weight: 900 !important; border-left: 6px solid #cca000 !important; border-color: #cca000 !important; box-shadow: inset 0 0 6px rgba(255, 215, 0, 0.7); }
 .medal-gold .team-name-text { color: #4a3400 !important; }
-.medal-silver { background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 50%, #b8b8b8 100%) !important; color: #2b2b2b !important; font-weight: 900 !important; border-color: #a0a0a0 !important; box-shadow: inset 0 0 6px rgba(200, 200, 200, 0.7); }
+.medal-silver { background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 50%, #b8b8b8 100%) !important; color: #2b2b2b !important; font-weight: 900 !important; border-left: 6px solid #a0a0a0 !important; border-color: #a0a0a0 !important; box-shadow: inset 0 0 6px rgba(200, 200, 200, 0.7); }
 .medal-silver .team-name-text { color: #2b2b2b !important; }
-.medal-bronze { background: linear-gradient(135deg, #fce0cd 0%, #e8a87c 50%, #cd7f32 100%) !important; color: #3d1c02 !important; font-weight: 900 !important; border-color: #b87333 !important; box-shadow: inset 0 0 6px rgba(205, 127, 50, 0.7); }
+.medal-bronze { background: linear-gradient(135deg, #fce0cd 0%, #e8a87c 50%, #cd7f32 100%) !important; color: #3d1c02 !important; font-weight: 900 !important; border-left: 6px solid #b87333 !important; border-color: #b87333 !important; box-shadow: inset 0 0 6px rgba(205, 127, 50, 0.7); }
 .medal-bronze .team-name-text { color: #3d1c02 !important; }
 .medal-badge-tag { font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.85); margin-right: 4px; display: inline-block; text-decoration: none !important; }
 
@@ -259,8 +257,8 @@ th { background-color: var(--black); color: white; }
 .fanfare-sub { font-size: 13px; font-weight: normal; margin-top: 3px; color: #333; }
 #confetti-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10001; }
 .modal-btn-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
-.modal-winner-btn { padding: 14px; font-size: 16px; background-color: var(--green); border-radius: 6px; }
-.modal-winner-btn:hover { background-color: #0e702e; }
+.modal-winner-btn { padding: 14px; font-size: 16px; background-color: var(--green); border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: bold; }
+.modal-winner-btn:hover { filter: brightness(0.9); }
 
 /* Large Single Stop Button for Dash & Relay */
 .btn-single-stop {
