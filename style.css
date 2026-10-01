@@ -169,12 +169,37 @@ th { background-color: var(--black); color: white; }
 /* Bracket Styles */
 .bracket { display: flex; justify-content: space-between; margin-top: 5px; overflow-x: auto; gap: 5px; min-height: 200px; }
 .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 165px; flex: 1; }
-.match { border: 2px solid #ccc; border-radius: 5px; margin: 5px 0; background: #fafafa; }
-.team { padding: 6px; border-bottom: 1px solid #ccc; cursor: pointer; min-height: 26px; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.match { border: 2px solid #ccc; border-radius: 5px; margin: 5px 0; background: #fafafa; overflow: hidden; }
+.team { padding: 6px; border-bottom: 1px solid #ccc; cursor: pointer; min-height: 26px; font-size: 12px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; gap: 4px; box-sizing: border-box; }
 .team:last-child { border-bottom: none; }
 .team:hover:not(.locked) { background-color: #e0e0e0; }
 .team-name-text { flex-grow: 1; word-break: break-word; }
 .locked { cursor: default; }
+
+/* Red and Blue Lane Styles */
+.lane-blue-border {
+    border-left: 6px solid var(--blue) !important;
+}
+.lane-red-border {
+    border-left: 6px solid var(--red) !important;
+}
+.lane-badge {
+    font-size: 10px;
+    font-weight: 900;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #fff;
+    margin-right: 5px;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    text-transform: uppercase;
+}
+.lane-badge-blue {
+    background-color: var(--blue);
+}
+.lane-badge-red {
+    background-color: var(--red);
+}
 
 .match-time-input { width: 60px; padding: 2px 4px; font-size: 10px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #bbb; border-radius: 3px; background: #fff; color: #111; margin-right: 3px; }
 .match-time-input:focus { border-color: var(--blue); outline: none; background: #ffffe0; }
@@ -236,14 +261,69 @@ th { background-color: var(--black); color: white; }
 .modal-btn-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
 .modal-winner-btn { padding: 14px; font-size: 16px; background-color: var(--green); border-radius: 6px; }
 .modal-winner-btn:hover { background-color: #0e702e; }
-.modal-winner-btn.auto-champion { background: linear-gradient(135deg, #009639, #00702a); border: 2px solid var(--yellow); box-shadow: 0 0 10px rgba(0, 150, 57, 0.5); font-weight: 900; }
-.btn-stop-team { background-color: var(--red); font-size: 14px; padding: 12px 10px; border-radius: 6px; flex: 1; min-width: 140px; word-break: break-word; }
-.btn-stop-team:hover { background-color: #a91228; }
-.btn-team-stopped { background-color: var(--green) !important; color: white !important; cursor: default; }
-.btn-early-stop { background-color: #e67e22; font-size: 13px; padding: 8px 16px; border-radius: 5px; }
-.btn-early-stop:hover { background-color: #d35400; }
 
-/* Security Visibility: Hidden unless logged in */
+/* Large Single Stop Button for Dash & Relay */
+.btn-single-stop {
+    width: 100%;
+    max-width: 360px;
+    padding: 22px 20px;
+    font-size: 22px;
+    font-weight: 900;
+    border-radius: 12px;
+    cursor: pointer;
+    border: 3px solid #fff;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    transition: transform 0.1s ease, background-color 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 10px auto;
+    display: block;
+}
+.btn-single-stop:active {
+    transform: scale(0.96);
+}
+.btn-stop-1st {
+    background-color: var(--green);
+    color: white;
+}
+.btn-stop-1st:hover {
+    background-color: #0b7e33;
+}
+.btn-stop-2nd {
+    background-color: #e67e22;
+    color: white;
+    animation: pulseWarning 1s infinite alternate;
+}
+.btn-stop-2nd:hover {
+    background-color: #d35400;
+}
+@keyframes pulseWarning {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.03); }
+}
+
+/* Modal Lane-Colored Winner Selection */
+.modal-lane-blue {
+    background-color: var(--blue) !important;
+    color: white !important;
+    border: 2px solid #002277 !important;
+}
+.modal-lane-blue:hover {
+    background-color: #002277 !important;
+}
+.modal-lane-red {
+    background-color: var(--red) !important;
+    color: white !important;
+    border: 2px solid #a91228 !important;
+}
+.modal-lane-red:hover {
+    background-color: #a91228 !important;
+}
+
+.btn-early-stop { background-color: #7f8c8d; font-size: 13px; padding: 8px 16px; border-radius: 5px; }
+.btn-early-stop:hover { background-color: #5d6d7e; }
+
+/* Security Visibility */
 .admin-only { display: none !important; }
 body.is-admin .admin-only { display: flex !important; }
 body.is-admin button.admin-only { display: inline-block !important; }
