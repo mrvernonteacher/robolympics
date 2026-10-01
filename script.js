@@ -436,9 +436,11 @@ function openMatchTimer(eventId, classId, matchId, matchTitle) {
     if (!isAdmin) return;
     const ev = getCleanOrExistingEvent(eventId, classId);
     const t1 = ev[matchId][0], t2 = ev[matchId][1];
-    if (!isValidTeam(t1) || !isValidTeam(t2)) return;
+    const valid1 = isValidTeam(t1) && !isSlotDQ(ev, matchId, 0);
+    const valid2 = isValidTeam(t2) && !isSlotDQ(ev, matchId, 1);
+    if (!valid1 && !valid2) return;
 
-    currentMatchContext = { eventId, classId, matchId, matchTitle, t1, t2 };
+    currentMatchContext = { eventId, classId, matchId, matchTitle, t1, t2, valid1, valid2 };
     dualRaceSplits = [];
     dualRaceSplitStrings = [];
     clearConfetti();
@@ -446,16 +448,24 @@ function openMatchTimer(eventId, classId, matchId, matchTitle) {
     const modal = document.getElementById('match-modal');
     document.getElementById('modal-event-name').innerText = `${eventId.toUpperCase()} - ${matchTitle}`;
     
-    // Highlight blue and red lanes in modal
     const hasLanes = ['tug', 'dash', 'relay'].includes(eventId);
-    if (hasLanes) {
-        document.getElementById('modal-matchup-title').innerHTML = `
-            <span style="color:var(--blue);">🔵 ${getTeamNameDisplay(t1)}</span>
-            <span style="color:#666; font-size:16px;"> VS </span>
-            <span style="color:var(--red);">🔴 ${getTeamNameDisplay(t2)}</span>
-        `;
+    if (valid1 && valid2) {
+        if (hasLanes) {
+            document.getElementById('modal-matchup-title').innerHTML = `
+                <span style="color:var(--blue);">🔵 ${getTeamNameDisplay(t1)}</span>
+                <span style="color:#666; font-size:16px;"> VS </span>
+                <span style="color:var(--red);">🔴 ${getTeamNameDisplay(t2)}</span>
+            `;
+        } else {
+            document.getElementById('modal-matchup-title').innerText = `${getTeamNameDisplay(t1)} VS ${getTeamNameDisplay(t2)}`;
+        }
     } else {
-        document.getElementById('modal-matchup-title').innerText = `${getTeamNameDisplay(t1)} VS ${getTeamNameDisplay(t2)}`;
+        const soloTeam = valid1 ? t1 : t2;
+        const laneColor = valid1 ? "var(--blue)" : "var(--red)";
+        const laneIcon = valid1 ? "🔵" : "🔴";
+        document.getElementById('modal-matchup-title').innerHTML = `
+            <span style="color:${laneColor}; font-weight:bold;">${laneIcon} Solo Run: ${getTeamNameDisplay(soloTeam)}</span>
+        `;
     }
 
     document.getElementById('modal-actions-area').style.display = 'none';
@@ -485,18 +495,30 @@ function startActiveMatchClock(eventId) {
     const isDualRace = ['dash', 'relay'].includes(eventId);
 
     if (isDualRace) {
+        const isSolo = !currentMatchContext.valid1 || !currentMatchContext.valid2;
         const startTime = Date.now();
         dualRaceSplits = [];
         dualRaceSplitStrings = [];
         displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
-        clockControls.innerHTML = `
-            <button id="btn-master-stop" class="btn-single-stop btn-stop-1st" onclick="handleSingleStopPress(${startTime})">
-                ⏹️ STOP 1ST PLACE
-            </button>
-            <div style="margin-top: 14px;">
-                <button class="btn-early-stop" onclick="finishDualRaceEarly(${startTime})">🏁 End Race Early / DNF</button>
-            </div>
-        `;
+
+        if (isSolo) {
+            const soloSlot = currentMatchContext.valid1 ? 0 : 1;
+            clockControls.innerHTML = `
+                <button id="btn-master-stop" class="btn-single-stop btn-stop-1st" onclick="handleSoloStopPress(${startTime}, ${soloSlot})">
+                    ⏹️ STOP TIMER
+                </button>
+            `;
+        } else {
+            clockControls.innerHTML = `
+                <button id="btn-master-stop" class="btn-single-stop btn-stop-1st" onclick="handleSingleStopPress(${startTime})">
+                    ⏹️ STOP 1ST PLACE
+                </button>
+                <div style="margin-top: 14px;">
+                    <button class="btn-early-stop" onclick="finishDualRaceEarly(${startTime})">🏁 End Race Early / DNF</button>
+                </div>
+            `;
+        }
+
         modalTimerInterval = setInterval(() => {
             displayArea.innerHTML = `<div class="clock-active">${formatMs(Date.now() - startTime, true)}</div>`;
         }, 30);
@@ -513,7 +535,6 @@ function startActiveMatchClock(eventId) {
         }, 30);
 
     } else {
-        // Tug-o-War countdown (30s)
         const endTime = Date.now() + 30000;
         displayArea.innerHTML = `<div class="clock-active">30.00s</div>`;
         clockControls.innerHTML = `<button class="btn-single-stop btn-stop-1st" onclick="finishCountdownEarly(${endTime})">⏹️ STOP / WINNER DECIDED</button>`;
@@ -533,7 +554,6 @@ function startActiveMatchClock(eventId) {
 function handleSingleStopPress(startTime) {
     const elapsed = Date.now() - startTime;
     if (dualRaceSplits.length === 0) {
-        // 1st press: Record winning time
         dualRaceSplits.push(elapsed);
         dualRaceSplitStrings.push(formatMs(elapsed, false));
         playBeep(620, 0.15);
@@ -544,7 +564,6 @@ function handleSingleStopPress(startTime) {
             btn.innerHTML = `⏹️ STOP 2ND PLACE<br><span style="font-size:13px; font-weight:normal; opacity:0.9;">1st Place: <strong>${dualRaceSplitStrings[0]}</strong></span>`;
         }
     } else if (dualRaceSplits.length === 1) {
-        // 2nd press: Record 2nd place time and trigger winner selection
         dualRaceSplits.push(elapsed);
         dualRaceSplitStrings.push(formatMs(elapsed, false));
         playBeep(840, 0.2);
@@ -552,6 +571,50 @@ function handleSingleStopPress(startTime) {
 
         triggerDualRaceWinnerSelection();
     }
+}
+
+function handleSoloStopPress(startTime, slotIdx) {
+    if (modalTimerInterval) clearInterval(modalTimerInterval);
+    const elapsed = Date.now() - startTime;
+    const timeStr = formatMs(elapsed, false);
+    playBeep(840, 0.2);
+
+    const displayArea = document.getElementById('modal-display-area');
+    const actionsArea = document.getElementById('modal-actions-area');
+    const clockControls = document.getElementById('modal-clock-controls');
+    const btnContainer = document.getElementById('modal-winner-buttons');
+    const actionsHeading = document.getElementById('modal-actions-heading');
+    clockControls.style.display = 'none';
+
+    const ctx = currentMatchContext;
+    const team = slotIdx === 0 ? ctx.t1 : ctx.t2;
+
+    displayArea.innerHTML = `
+        <div class="flag-box">🏁</div>
+        <div style="font-size:22px; font-weight:bold; color:var(--green); margin-bottom:5px;">TIME RECORDED!</div>
+        <div style="font-size:18px; font-weight:bold; color:#333; margin-top:5px;">Official Time: ${timeStr}</div>
+    `;
+
+    actionsHeading.innerText = "CONFIRM TIME & ADVANCE:";
+    const laneClass = slotIdx === 0 ? "modal-lane-blue" : "modal-lane-red";
+    const laneIcon = slotIdx === 0 ? "🔵" : "🔴";
+    btnContainer.innerHTML = `
+        <button class="modal-winner-btn ${laneClass}" onclick="confirmSoloRace(${slotIdx}, '${timeStr}')" style="font-size: 17px; padding: 14px;">
+            ${laneIcon} Confirm ${getTeamNameDisplay(team)} (${timeStr})
+        </button>
+    `;
+    actionsArea.style.display = 'block';
+}
+
+function confirmSoloRace(slotIdx, timeStr) {
+    if (!currentMatchContext) return;
+    const { eventId, classId, matchId } = currentMatchContext;
+    const ev = getCleanOrExistingEvent(eventId, classId);
+    if (!ev.times) ev.times = {};
+    if (!ev.times[matchId]) ev.times[matchId] = {};
+    ev.times[matchId][slotIdx] = timeStr;
+    advanceTeam(eventId, classId, matchId, slotIdx);
+    closeMatchModal();
 }
 
 function finishDualRaceEarly(startTime) {
@@ -616,7 +679,6 @@ function confirmDualRaceWinner(winnerIdx) {
     const ev = getCleanOrExistingEvent(eventId, classId);
     if (!ev.times) ev.times = {};
 
-    // 1st place time goes to winner, 2nd place time goes to loser
     if (winnerIdx === 0) {
         ev.times[matchId] = { 0: dualRaceSplitStrings[0] || "", 1: dualRaceSplitStrings[1] || "" };
     } else {
@@ -731,7 +793,7 @@ function stopBracketTimer(id) {
 
 function isValidTeam(val) {
     if (!val || val === "" || val === "BYE" || val === "?") return false;
-    if (Array.isArray(val)) return val.some(v => v !== "BYE" && v !== "" && v !== "?");
+    if (Array.isArray(val)) return val.some(v => v !== "BYE" && v !== "" && v !== "?" && v !== undefined && v !== null);
     return true;
 }
 
@@ -741,6 +803,10 @@ function isSlotDQ(ev, mId, slotIdx) {
 
 function isSameTeam(a, b) {
     if (a === undefined || b === undefined) return false;
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        return a.every(val => b.includes(val));
+    }
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -758,6 +824,7 @@ function getCleanOrExistingEvent(eventId, classId) {
     if (!ev.dq) ev.dq = {};
     if (!ev.times) ev.times = {};
     if (!ev.winners) ev.winners = {};
+    autoAdvanceCascade(ev);
     return ev;
 }
 
@@ -794,7 +861,12 @@ function autoAdvanceCascade(ev) {
     const r1 = resolveMatch('m1'), r2 = resolveMatch('m2'), r3 = resolveMatch('m3'), r4 = resolveMatch('m4');
     ev.m5[0] = r1.winner; ev.m5[1] = r2.winner; ev.m6[0] = r3.winner; ev.m6[1] = r4.winner;
     const r5 = resolveMatch('m5'), r6 = resolveMatch('m6');
-    ev.m7[0] = r5.winner; ev.m7[1] = r6.winner; ev.m8[0] = r5.loser; ev.m8[1] = r6.loser;
+    ev.m7[0] = r5.winner; ev.m7[1] = r6.winner; 
+    
+    // Preserve semi losers for 3rd place
+    ev.m8[0] = (r5.loser && r5.loser !== "BYE") ? r5.loser : (r1.loser && r1.loser !== "BYE" ? r1.loser : (r2.loser || "BYE"));
+    ev.m8[1] = (r6.loser && r6.loser !== "BYE") ? r6.loser : (r3.loser && r3.loser !== "BYE" ? r3.loser : (r4.loser || "BYE"));
+
     resolveMatch('m7'); resolveMatch('m8');
 }
 
@@ -1004,12 +1076,27 @@ function randomizeRelayBracket(eventId, classId) {
         pairs.push(activeTeams[i+1] ? [activeTeams[i], activeTeams[i+1]] : [activeTeams[i], "BYE"]);
     }
     pairs = shuffleArray(pairs);
-    let seeds = Array(8).fill("BYE");
-    for(let i=0; i<pairs.length && i<8; i++) seeds[i] = pairs[i];
+
+    // Balanced pairing across Q1-Q4
+    let m = {
+        m1: ["BYE", "BYE"],
+        m2: ["BYE", "BYE"],
+        m3: ["BYE", "BYE"],
+        m4: ["BYE", "BYE"]
+    };
+    const order = [
+        ['m1', 0], ['m1', 1],
+        ['m3', 0], ['m3', 1],
+        ['m2', 0], ['m2', 1],
+        ['m4', 0], ['m4', 1]
+    ];
+    for (let i = 0; i < pairs.length && i < 8; i++) {
+        const [mId, slot] = order[i];
+        m[mId][slot] = pairs[i];
+    }
 
     triggerDramaticReveal(eventId, classId, {
-        m1: [seeds[0], seeds[7]], m2: [seeds[3], seeds[4]],
-        m3: [seeds[2], seeds[5]], m4: [seeds[1], seeds[6]],
+        m1: m.m1, m2: m.m2, m3: m.m3, m4: m.m4,
         m5: ["", ""], m6: ["", ""], m7: ["", ""], m8: ["", ""],
         winners: {}, dq: {}, times: {}
     });
@@ -1223,8 +1310,12 @@ function renderBracketUI(eventId, classId) {
 
     const renderMatch = (mId, title) => {
         const t0 = ev[mId][0], t1 = ev[mId][1];
-        const hasTwoTeams = isValidTeam(t0) && isValidTeam(t1) && !isSlotDQ(ev, mId, 0) && !isSlotDQ(ev, mId, 1);
-        const showMatchTimer = !isRevealing && !isManual && hasTwoTeams && isAdmin;
+        const valid0 = isValidTeam(t0) && !isSlotDQ(ev, mId, 0);
+        const valid1 = isValidTeam(t1) && !isSlotDQ(ev, mId, 1);
+        const hasTwoTeams = valid0 && valid1;
+        // Allows starting timer for 2 teams OR a solo time trial against a BYE
+        const canTimeMatch = hasTwoTeams || (valid0 && t1 === "BYE") || (valid1 && t0 === "BYE");
+        const showMatchTimer = !isRevealing && !isManual && canTimeMatch && isAdmin;
 
         return `
         <div class="match">
@@ -1393,7 +1484,7 @@ function awardGolfPoints(classId) {
 
 function revokeGolfPoints(classId) {
     if (!isAdmin) return;
-    if (!data.awards[classId]?.['golf']) return;
+    if (!data.awards[classId]?.[eventId]) return;
     if (confirm("Reset golf points for this class?")) {
         undoEventPoints('golf', classId);
         saveData();
