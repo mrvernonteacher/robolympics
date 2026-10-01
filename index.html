@@ -1,1407 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VEXcode Pseudocode Hardware Gatekeeper</title>
-  
-  <!-- Walton Engineering Logo as Favicon -->
-  <link rel="icon" type="image/png" href="./WalEngLogo.png">
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #0b1120;
-    }
-    
-    code, pre {
-      font-family: 'Fira Code', monospace;
-    }
-
-    /* Shutter flash animation */
-    @keyframes shutterFlash {
-      0% { opacity: 0.9; }
-      100% { opacity: 0; }
-    }
-    .shutter-flash {
-      animation: shutterFlash 0.35s ease-out forwards;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robo-Lympics Standings</title>
+    <link rel="stylesheet" href="style.css?v=105">
 </head>
-<body class="text-slate-200 min-h-screen flex flex-col antialiased selection:bg-red-600 selection:text-white">
+<body>
 
-  <!-- ================= TOP NAVIGATION / HEADER ================= -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <!-- WalEngLogo Badge -->
-        <div class="w-12 h-12 flex-shrink-0 rounded-lg p-0.5 flex items-center justify-center bg-slate-800/60 border border-slate-700">
-          <img src="./WalEngLogo.png" 
-               alt="Walton Engineering Logo" 
-               class="w-full h-full object-contain"
-               onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-10 h-10 rounded bg-[#082A72] border border-[#BA0C1E] flex items-center justify-center font-bold text-white text-lg\'>W</div>';">
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="font-bold text-lg text-white leading-tight">VEXcode Hardware Gatekeeper</h1>
-            <span class="text-xs bg-red-950/80 border border-red-700/60 text-red-300 font-semibold px-2 py-0.5 rounded-full">V5 Strict</span>
-          </div>
-          <p class="text-xs text-slate-400">Autonomous Pseudocode &rarr; VEXcode V5 Python & Blocks Validation Engine</p>
-        </div>
-      </div>
-
-      <!-- Action Utilities -->
-      <div class="flex items-center gap-2">
-        <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-950/70 border border-emerald-700/60 text-emerald-300">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Cloud Proxy Connected</span>
-        </span>
-
-        <button id="helpModalBtn" 
-                title="Hardware & Gatekeeper Criteria"
-                class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition text-sm font-bold">
-          ?
-        </button>
-      </div>
+<div class="top-bar">
+    <div class="year-controls">
+        <label for="yearSelector" style="font-weight: bold; font-size: 14px;">Tournament Year:</label>
+        <select id="yearSelector" onchange="changeYear(this.value)"></select>
+        <button onclick="promptArchiveYear()" class="admin-only" style="background-color: #8e44ad; padding: 6px 12px; font-size: 12px;">📁 Archive & Start New Year</button>
     </div>
-  </header>
 
-  <!-- ================= MAIN APP CONTAINER ================= -->
-  <main class="max-w-6xl mx-auto px-4 py-8 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div id="cloud-indicator" class="cloud-status">☁️ Connecting to Google Sheet...</div>
+
+    <div>
+        <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdmin()">🔒 Teacher Mode</button>
+    </div>
+</div>
+
+<header>
+    <img src="Robo-Lympics Logo.gif" alt="Robo-Lympics Logo" onerror="this.style.display='none'">
+    <h1 style="margin-top: 5px;">Robo-Lympics Tournament Tracker</h1>
+</header>
+
+<nav>
+    <button onclick="showTab('setup')">Setup Teams</button>
+    <button onclick="showTab('leaderboard')" style="background-color: var(--yellow); color: black;">Leaderboards</button>
+    <button onclick="showTab('event-tug')">Tug-o-War</button>
+    <button onclick="showTab('event-dash')">X-Meter Dash</button>
+    <button onclick="showTab('event-relay')">Robo-Relay</button>
+    <button onclick="showTab('event-athalon')">Robathalon</button>
+    <button onclick="showTab('event-golf')">Bot-Bot Golf</button>
+</nav>
+
+<!-- DRAMATIC MATCH TIMER MODAL -->
+<div id="match-modal" class="modal-overlay">
+    <div class="modal-card">
+        <canvas id="confetti-canvas"></canvas>
+        <div id="modal-event-name" class="modal-event-title">Event Matchup</div>
+        <div id="modal-matchup-title" class="modal-matchup-names">Team 1 vs Team 2</div>
+        
+        <div id="modal-display-area" class="dramatic-display"></div>
+        <div id="modal-clock-controls" style="margin: 10px 0; display: none;"></div>
+
+        <div id="modal-actions-area" style="display:none;">
+            <h3 id="modal-actions-heading" style="margin: 10px 0; color: var(--green);">SELECT OR CONFIRM WINNER:</h3>
+            <div class="modal-btn-grid" id="modal-winner-buttons"></div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="closeMatchModal()" style="background-color: #888; font-size: 11px;">Cancel / Dismiss to Bracket</button>
+        </div>
+    </div>
+</div>
+
+<!-- SETUP TAB -->
+<div id="setup" class="tab-content active-tab">
+    <h2>Setup Classes & Teams</h2>
+    <div class="split-view">
+        <div class="class-section c1-border">
+            <input type="text" id="class1Name" class="class-title" value="Guiendon" onchange="saveData()" readonly>
+            <div id="class1List"></div>
+            <div class="admin-only" style="margin-top: 15px; display: flex; gap: 5px;">
+                <input type="text" id="newTeam1" placeholder="Type team name and hit Enter" style="flex-grow: 1;" onkeypress="handleKeyPress(event, 1)">
+                <button onclick="addTeam(1)">Add</button>
+            </div>
+        </div>
+        <div class="class-section c2-border">
+            <input type="text" id="class2Name" class="class-title" value="Vernon" onchange="saveData()" readonly>
+            <div id="class2List"></div>
+            <div class="admin-only" style="margin-top: 15px; display: flex; gap: 5px;">
+                <input type="text" id="newTeam2" placeholder="Type team name and hit Enter" style="flex-grow: 1;" onkeypress="handleKeyPress(event, 2)">
+                <button onclick="addTeam(2)">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LEADERBOARDS TAB -->
+<div id="leaderboard" class="tab-content">
+    <h2>Class Leaderboards & Medal Count</h2>
+    <div class="split-view">
+        <div class="class-section c1-border">
+            <h3 class="title-c1">Guiendon Standings</h3>
+            <div id="standings-podium-1"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Rank</th>
+                        <th>Team</th>
+                        <th style="width: 12%;">🥇 Gold</th>
+                        <th style="width: 12%;">🥈 Silver</th>
+                        <th style="width: 12%;">🥉 Bronze</th>
+                        <th style="width: 18%;">Total Pts</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody1"></tbody>
+            </table>
+        </div>
+
+        <div class="class-section c2-border">
+            <h3 class="title-c2">Vernon Standings</h3>
+            <div id="standings-podium-2"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Rank</th>
+                        <th>Team</th>
+                        <th style="width: 12%;">🥇 Gold</th>
+                        <th style="width: 12%;">🥈 Silver</th>
+                        <th style="width: 12%;">🥉 Bronze</th>
+                        <th style="width: 18%;">Total Pts</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody2"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CONTAINER WHERE SCRIPT RENDERS THE 4 BRACKET EVENTS -->
+<div id="bracket-events-container"></div>
+
+<!-- BOT-BOT GOLF TAB -->
+<div id="event-golf" class="tab-content">
+    <h2 style="text-align: center; margin-bottom: 5px;">Bot-Bot Golf (Final Event - DOUBLE POINTS)</h2>
+    <p style="text-align: center; margin-bottom: 20px;">Lowest score wins. 1st = 10 pts, 2nd = 6 pts, 3rd = 2 pts.</p>
     
-    <!-- LEFT PANEL: Ingestion & Gatekeeper Rules (5 Columns) -->
-    <div class="lg:col-span-5 space-y-6">
-      
-      <!-- Gatekeeper Description Banner -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-        <div class="absolute -top-12 -right-12 w-32 h-32 bg-blue-600/10 rounded-full blur-2xl pointer-events-none"></div>
-        <div class="flex items-start gap-3">
-          <div class="p-2.5 rounded-xl bg-blue-950/70 border border-blue-700/50 text-blue-400 flex-shrink-0 mt-0.5">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-            </svg>
-          </div>
-          <div>
-            <h2 class="text-sm font-bold text-white tracking-wide uppercase">Hardware Gatekeeper Criteria</h2>
-            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-              This engine enforces physical robotics requirements:
-            </p>
-            <ul class="text-xs text-slate-300 mt-2 space-y-1 list-disc list-inside">
-              <li><strong class="text-red-400">Strict Port Declarations:</strong> Peripherals without an explicit brain port or 3-wire pin assignment are immediately rejected.</li>
-              <li><strong class="text-amber-400">Literal Logic Execution:</strong> If a motor is commanded to start but never stopped, it will spin indefinitely in the generated code.</li>
-              <li><strong class="text-emerald-400">Dual V5 Containers:</strong> Direct export to native <code class="text-blue-300">.v5python</code> and <code class="text-emerald-300">.v5blocks</code> project files[cite: 5, 7].</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+    <div class="event-embed" id="golf-canva-embed"></div>
 
-      <!-- Ingestion Card (File Upload + Webcam Viewfinder + Required Metadata) -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-        
-        <!-- Tab Selector: File Upload vs Camera -->
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Source Pseudocode</label>
-          <div class="flex gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-            <button id="modeUploadBtn" class="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition">
-              Upload File
-            </button>
-            <button id="modeCameraBtn" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">
-              📷 Use Camera
-            </button>
-          </div>
-        </div>
-        
-        <!-- SECTION A: Drag & Drop Dropzone -->
-        <div id="uploadModeContainer" class="space-y-3">
-          <div id="dropzone" 
-               class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-950/50 flex flex-col items-center justify-center min-h-[200px]">
-            
-            <input type="file" id="fileInput" accept="image/*,application/pdf" class="hidden">
-            
-            <div id="dropzonePrompt" class="space-y-3 flex flex-col items-center">
-              <div class="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-              </div>
-              <div>
-                <p class="text-sm font-medium text-slate-200">Click to upload or drag & drop</p>
-                <p class="text-xs text-slate-500 mt-0.5">Photos, JPG, PNG, or PDF</p>
-              </div>
-              <span class="inline-block text-[11px] px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 font-mono">Auto-scaled for OCR</span>
+    <div class="split-view">
+        <div class="class-section c1-border">
+            <h3 class="title-c1">Guiendon Bot-Bot Golf</h3>
+            <div class="bracket-wrapper" id="golf-wrapper-1">
+                <table>
+                    <thead><tr><th>Team</th><th>Score (Strokes)</th></tr></thead>
+                    <tbody id="golfBody1"></tbody>
+                </table>
+                <div id="podium-overlay-golf-1" class="event-podium-overlay" style="display:none;"></div>
             </div>
-
-            <!-- Preview Container -->
-            <div id="previewContainer" class="hidden w-full space-y-3">
-              <div class="relative w-full max-h-56 rounded-lg overflow-hidden bg-black/40 border border-slate-700">
-                <img id="imagePreview" src="" alt="Pseudocode preview" class="w-full h-full object-contain max-h-52">
-              </div>
-              <div class="flex items-center justify-between text-xs px-1">
-                <span id="fileNameDisplay" class="font-mono text-slate-400 truncate max-w-[200px]">file.jpg</span>
-                <button id="removeFileBtn" class="text-red-400 hover:text-red-300 font-semibold">Change / Retake</button>
-              </div>
+            <div id="status-golf-1" class="award-status">Points Not Awarded</div>
+            <div class="points-action-bar admin-only">
+                <button onclick="awardGolfPoints(1)" class="points-btn">Award Double Points</button>
+                <button onclick="revokeGolfPoints(1)" class="btn-warning">Rescore / Reset Points</button>
             </div>
-          </div>
         </div>
 
-        <!-- SECTION B: Live Webcam Viewfinder with Auto-Framing & Auto-Snap -->
-        <div id="cameraModeContainer" class="hidden space-y-3">
-          
-          <!-- Auto-Snap Toggle Bar -->
-          <div class="flex items-center justify-between px-1">
-            <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Auto-Snap Assistant
-            </span>
-            <label class="flex items-center cursor-pointer gap-2 text-xs font-mono text-slate-300">
-              <span id="autoSnapStatusLabel" class="text-[11px] text-emerald-400 font-semibold">ON</span>
-              <input type="checkbox" id="autoSnapToggle" checked class="sr-only peer">
-              <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-600 relative"></div>
-            </label>
-          </div>
-
-          <div class="relative rounded-xl overflow-hidden bg-black border-2 border-slate-700 min-h-[240px] flex items-center justify-center">
-            
-            <!-- Live Video Element -->
-            <video id="webcamVideo" 
-                   autoplay 
-                   playsinline 
-                   muted 
-                   class="w-full h-auto min-h-[240px] max-h-[320px] bg-black object-contain"></video>
-
-            <!-- Shutter Flash Overlay -->
-            <div id="shutterFlash" class="absolute inset-0 bg-white pointer-events-none opacity-0"></div>
-
-            <!-- Intelligent Guide Target Box Overlay -->
-            <div id="targetBox" class="absolute inset-4 border-2 border-dashed border-amber-400/70 rounded-lg pointer-events-none flex flex-col items-center justify-between p-3 transition-colors duration-200">
-              
-              <div class="w-full flex justify-between">
-                <span class="w-3 h-3 border-t-2 border-l-2 border-inherit"></span>
-                <span class="w-3 h-3 border-t-2 border-r-2 border-inherit"></span>
-              </div>
-
-              <!-- Center Status & Countdown Ring -->
-              <div class="flex flex-col items-center gap-2">
-                <div id="progressRingContainer" class="relative w-12 h-12 hidden">
-                  <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
-                    <path class="text-slate-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path id="progressRingCircle" class="text-emerald-400 transition-all duration-75" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  </svg>
-                  <span id="countdownNumber" class="absolute inset-0 flex items-center justify-center font-bold text-xs text-white"></span>
-                </div>
-
-                <span id="cameraPromptTag" class="text-[11px] font-medium text-amber-300 bg-black/80 px-2.5 py-1 rounded backdrop-blur border border-slate-700/60 transition-all text-center">
-                  Align pseudocode within frame
-                </span>
-              </div>
-
-              <div class="w-full flex justify-between">
-                <span class="w-3 h-3 border-b-2 border-l-2 border-inherit"></span>
-                <span class="w-3 h-3 border-b-2 border-r-2 border-inherit"></span>
-              </div>
+        <div class="class-section c2-border">
+            <h3 class="title-c2">Vernon Bot-Bot Golf</h3>
+            <div class="bracket-wrapper" id="golf-wrapper-2">
+                <table>
+                    <thead><tr><th>Team</th><th>Score (Strokes)</th></tr></thead>
+                    <tbody id="golfBody2"></tbody>
+                </table>
+                <div id="podium-overlay-golf-2" class="event-podium-overlay" style="display:none;"></div>
             </div>
-
-            <!-- Camera Switch Lens Button -->
-            <button id="switchCameraBtn" 
-                    type="button"
-                    title="Flip Camera Lens"
-                    class="absolute top-3 right-3 p-2 bg-slate-900/80 hover:bg-slate-800 text-white rounded-lg border border-slate-700 shadow backdrop-blur transition z-10">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Capture Trigger Buttons -->
-          <div class="flex gap-2">
-            <button id="snapPhotoBtn" 
-                    type="button"
-                    class="flex-1 py-2 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-950/40">
-              <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
-              <span>Manual Snap</span>
-            </button>
-            <button id="cancelCameraBtn" 
-                    type="button"
-                    class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-              Cancel
-            </button>
-          </div>
-        </div>
-
-        <!-- ================= UPFRONT REQUIRED METADATA CARD ================= -->
-        <div id="metadataInputCard" class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-3">
-          <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-300 flex items-center justify-between">
-              <span>Project / File Name <span class="text-red-400">*</span></span>
-              <span class="text-[10px] text-slate-500 font-normal">Required</span>
-            </label>
-            <div class="relative flex items-center">
-              <input type="text" 
-                     id="projectNameInput" 
-                     placeholder="e.g. Autonomous_Challenge_1" 
-                     class="w-full bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs font-mono text-white focus:outline-none transition pr-36">
-              <span class="absolute right-3 text-[10px] font-mono text-emerald-400 pointer-events-none font-bold">.v5python / .v5blocks</span>
+            <div id="status-golf-2" class="award-status">Points Not Awarded</div>
+            <div class="points-action-bar admin-only">
+                <button onclick="awardGolfPoints(2)" class="points-btn">Award Double Points</button>
+                <button onclick="revokeGolfPoints(2)" class="btn-warning">Rescore / Reset Points</button>
             </div>
-          </div>
-
-          <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-300 flex items-center justify-between">
-              <span>Author / Student Name <span class="text-red-400">*</span></span>
-              <span class="text-[10px] text-slate-500 font-normal">Required</span>
-            </label>
-            <input type="text" 
-                   id="authorNameInput" 
-                   placeholder="e.g. Ty Vernon / Period 3" 
-                   class="w-full bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs font-mono text-white focus:outline-none transition">
-          </div>
         </div>
-
-        <!-- GATED CONVERT TRIGGER BUTTON -->
-        <button id="convertBtn" 
-                disabled
-                class="w-full py-3 px-4 rounded-xl font-bold text-sm tracking-wide transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg shadow-blue-900/30">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-          </svg>
-          <span id="convertBtnText">Upload or Snap Pseudocode First</span>
-        </button>
-
-        <!-- Dynamic Model & Status Feedback -->
-        <div id="statusBox" class="hidden rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs">
-          <div class="flex items-center gap-2 text-slate-300">
-            <div class="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-            <span id="statusMessage" class="truncate font-mono">Initializing...</span>
-          </div>
-        </div>
-
-      </div>
-
     </div>
+</div>
 
-    <!-- RIGHT PANEL: Gatekeeper Results / VEX Python & Blocks Code (7 Columns) -->
-    <div class="lg:col-span-7 flex flex-col space-y-6">
-
-      <!-- Placeholder State (Before Execution) -->
-      <div id="emptyState" class="h-full min-h-[420px] rounded-2xl border border-slate-800 bg-slate-900/50 flex flex-col items-center justify-center p-8 text-center text-slate-500 space-y-3">
-        <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-400">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-          </svg>
-        </div>
-        <p class="text-sm font-medium text-slate-300">Ready for Hardware Verification</p>
-        <p class="text-xs max-w-sm text-slate-500 leading-relaxed">
-          Fill in your project and author name, then hold pseudocode steady up to your camera or upload a file. The engine will inspect port bindings and generate direct VEXcode V5 Python & Blocks project files[cite: 5, 7].
-        </p>
-      </div>
-
-      <!-- REJECTION CARD: When Hardware Gatekeeper Fails -->
-      <div id="rejectionCard" class="hidden rounded-2xl border border-red-700 bg-red-950/40 p-6 shadow-2xl space-y-5">
-        <div class="flex items-start gap-4">
-          <div class="w-12 h-12 rounded-xl bg-red-900/60 border border-red-600 flex items-center justify-center text-red-300 flex-shrink-0">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
-          </div>
-          <div>
-            <span class="text-xs font-bold uppercase tracking-wider text-red-400 bg-red-900/40 px-2 py-0.5 rounded border border-red-800">
-              Hardware Criteria Failed
-            </span>
-            <h2 class="text-lg font-bold text-white mt-1">Peripheral Port Missing</h2>
-            <p class="text-xs text-red-200 mt-1 leading-relaxed" id="rejectionSummary">
-              VEX bots cannot execute abstract code without physical brain pin assignments.
-            </p>
-          </div>
-        </div>
-
-        <div class="bg-black/40 rounded-xl p-4 border border-red-800/60 space-y-2">
-          <p class="text-xs font-semibold text-red-300 uppercase tracking-wider">Unassigned Peripherals Found:</p>
-          <ul id="missingPeripheralsList" class="text-xs font-mono text-red-200 space-y-1 list-disc list-inside">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-
-        <div class="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
-          <span>Action Required: Write the specific port or 3-wire pin next to each device on the paper and resubmit.</span>
-        </div>
-      </div>
-
-      <!-- SUCCESS CARD: Passed Gatekeeper & Generated Code -->
-      <div id="successCard" class="hidden space-y-6">
-
-        <!-- Hardware Inspection Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          <!-- Detected Ports Block -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Detected Port Mapping
-            </h3>
-            <ul id="detectedPortsList" class="text-xs font-mono text-slate-300 space-y-1">
-              <!-- Dynamically populated -->
-            </ul>
-          </div>
-
-          <!-- Runtime Behavioral Warnings (e.g. Runaway Motors) -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 mb-2">
-              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-              Runtime Logic Behavior
-            </h3>
-            <ul id="runtimeNotesList" class="text-xs text-slate-300 space-y-1.5">
-              <!-- Dynamically populated -->
-            </ul>
-          </div>
-
-        </div>
-
-        <!-- Code & Blocks Viewer Card -->
-        <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-          
-          <!-- Viewer Tab Bar & Action Controls -->
-          <div class="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
-            
-            <!-- Left Tabs: Python vs Blocks XML -->
-            <div class="flex items-center gap-2">
-              <div class="flex gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-                <button id="viewPythonTabBtn" class="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition flex items-center gap-1.5">
-                  <span>🐍 Python</span>
-                </button>
-                <button id="viewBlocksTabBtn" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5">
-                  <span>🧱 Blocks XML</span>
-                </button>
-              </div>
-              <span id="editorFileNameDisplay" class="text-xs font-mono text-slate-400 ml-1 font-semibold hidden sm:inline">project.v5python</span>
-            </div>
-
-            <!-- Right Buttons: Copy & Dual Export Options -->
-            <div class="flex flex-wrap items-center gap-2">
-              
-              <button id="copyCodeBtn" 
-                      class="px-2.5 py-1.5 text-xs rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                </svg>
-                <span id="copyBtnText">Copy Python</span>
-              </button>
-
-              <!-- Download .v5python Button -->
-              <button id="downloadCodeBtn" 
-                      title="Download text python project for VEXcode V5"
-                      class="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-700 hover:bg-blue-600 text-white shadow-md flex items-center gap-1.5 transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                <span>.v5python</span>
-              </button>
-
-              <!-- Download .v5blocks Button -->
-              <button id="downloadBlocksBtn" 
-                      title="Download graphical scratch blocks project for VEXcode V5"
-                      class="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md flex items-center gap-1.5 transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                </svg>
-                <span>.v5blocks</span>
-              </button>
-
-            </div>
-          </div>
-
-          <pre class="p-4 overflow-x-auto text-xs leading-relaxed text-slate-200 font-mono max-h-[480px]"><code id="codeOutput"></code></pre>
-        </div>
-
-        <!-- Transcription Collapsible Accordion -->
-        <details class="group bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <summary class="px-4 py-3 cursor-pointer text-xs font-semibold text-slate-400 group-open:text-white flex items-center justify-between transition hover:bg-slate-850">
-            <span>View Raw Handwriting Transcription (OCR)</span>
-            <span class="transition group-open:rotate-180">&#9660;</span>
-          </summary>
-          <div class="p-4 pt-1 border-t border-slate-800/60 bg-black/30">
-            <pre id="transcriptionOutput" class="text-xs font-mono text-slate-400 whitespace-pre-wrap leading-normal"></pre>
-          </div>
-        </details>
-
-      </div>
-
-    </div>
-
-  </main>
-
-  <!-- ================= INSTRUCTIONS & HELP MODAL ================= -->
-  <div id="helpModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="font-bold text-white text-base">Hardware Gatekeeper Instructions</h3>
-        <button id="closeHelpModalBtn" class="text-slate-400 hover:text-white text-lg">&times;</button>
-      </div>
-
-      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
-        <p>
-          This engineering converter prepares your autonomous routine for real VEX V5 hardware execution.
-        </p>
-
-        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
-          <p class="font-semibold text-white">How to pass validation:</p>
-          <ul class="list-disc list-inside space-y-1 text-slate-400">
-            <li>Write physical port numbers next to all motors (e.g., <code class="text-blue-300">motor ports 1+2</code>).</li>
-            <li>Write 3-wire letters next to LEDs (e.g., <code class="text-blue-300">LED pin A</code>).</li>
-            <li>Write port numbers next to distance sensors (e.g., <code class="text-blue-300">distance port 3</code>).</li>
-          </ul>
-        </div>
-
-        <p class="text-slate-400">
-          All processing runs through Walton's secure Cloudflare edge proxy. No personal accounts or keys required.
-        </p>
-      </div>
-
-      <div class="flex justify-end pt-2">
-        <button id="okHelpModalBtn" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white">
-          Got It
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= JAVASCRIPT LOGIC ================= -->
-  <script>
-    // SECURE CLOUDFLARE WORKER PROXY URL
-    const WORKER_PROXY_URL = 'https://vex-gemini-proxy.mrvernonteacher.workers.dev/';
-
-    // State variables
-    let selectedImageBase64 = null;
-    let selectedImageMime = 'image/jpeg';
-    let rawHardwareDeclarations = '';
-    let rawUserProjectCode = '';
-    let rawBlocksWorkspaceXml = '';
-    let currentRobotConfig = [];
-    let assembledPythonSource = '';
-    let currentActiveView = 'python';
-    let cameraStream = null;
-    let currentFacingMode = 'user';
-
-    // Auto-Snap Vision Processing State
-    let autoSnapTimer = null;
-    let prevFrameData = null;
-    let steadyConsecutiveFrames = 0;
-    const REQUIRED_STEADY_FRAMES = 30; // 30 frames @ 100ms = 3.0 seconds
-    let isAutoSnapping = false;
-
-    // DOM Elements - Modes & Inputs
-    const modeUploadBtn = document.getElementById('modeUploadBtn');
-    const modeCameraBtn = document.getElementById('modeCameraBtn');
-    const uploadModeContainer = document.getElementById('uploadModeContainer');
-    const cameraModeContainer = document.getElementById('cameraModeContainer');
-    const webcamVideo = document.getElementById('webcamVideo');
-    const snapPhotoBtn = document.getElementById('snapPhotoBtn');
-    const switchCameraBtn = document.getElementById('switchCameraBtn');
-    const cancelCameraBtn = document.getElementById('cancelCameraBtn');
-    const cameraPromptTag = document.getElementById('cameraPromptTag');
-    const targetBox = document.getElementById('targetBox');
-    const progressRingContainer = document.getElementById('progressRingContainer');
-    const progressRingCircle = document.getElementById('progressRingCircle');
-    const countdownNumber = document.getElementById('countdownNumber');
-    const shutterFlash = document.getElementById('shutterFlash');
-    const autoSnapToggle = document.getElementById('autoSnapToggle');
-    const autoSnapStatusLabel = document.getElementById('autoSnapStatusLabel');
-
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const dropzonePrompt = document.getElementById('dropzonePrompt');
-    const previewContainer = document.getElementById('previewContainer');
-    const imagePreview = document.getElementById('imagePreview');
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    const removeFileBtn = document.getElementById('removeFileBtn');
-    const convertBtn = document.getElementById('convertBtn');
-    const convertBtnText = document.getElementById('convertBtnText');
-    const statusBox = document.getElementById('statusBox');
-    const statusMessage = document.getElementById('statusMessage');
-
-    // Required Metadata Inputs
-    const metadataInputCard = document.getElementById('metadataInputCard');
-    const projectNameInput = document.getElementById('projectNameInput');
-    const authorNameInput = document.getElementById('authorNameInput');
-
-    // Output & Diagnostic DOM Elements
-    const emptyState = document.getElementById('emptyState');
-    const rejectionCard = document.getElementById('rejectionCard');
-    const rejectionSummary = document.getElementById('rejectionSummary');
-    const missingPeripheralsList = document.getElementById('missingPeripheralsList');
-    const successCard = document.getElementById('successCard');
-    const detectedPortsList = document.getElementById('detectedPortsList');
-    const runtimeNotesList = document.getElementById('runtimeNotesList');
-    const codeOutput = document.getElementById('codeOutput');
-    const transcriptionOutput = document.getElementById('transcriptionOutput');
-    
-    // Viewer Tabs & Downloads
-    const viewPythonTabBtn = document.getElementById('viewPythonTabBtn');
-    const viewBlocksTabBtn = document.getElementById('viewBlocksTabBtn');
-    const copyCodeBtn = document.getElementById('copyCodeBtn');
-    const copyBtnText = document.getElementById('copyBtnText');
-    const downloadCodeBtn = document.getElementById('downloadCodeBtn');
-    const downloadBlocksBtn = document.getElementById('downloadBlocksBtn');
-    const editorFileNameDisplay = document.getElementById('editorFileNameDisplay');
-
-    // Help Modal
-    const helpModal = document.getElementById('helpModal');
-    const helpModalBtn = document.getElementById('helpModalBtn');
-    const closeHelpModalBtn = document.getElementById('closeHelpModalBtn');
-    const okHelpModalBtn = document.getElementById('okHelpModalBtn');
-
-    helpModalBtn.onclick = () => helpModal.classList.remove('hidden');
-    closeHelpModalBtn.onclick = () => helpModal.classList.add('hidden');
-    okHelpModalBtn.onclick = () => helpModal.classList.add('hidden');
-
-    // Auto-Snap Toggle
-    autoSnapToggle.onchange = () => {
-      if (autoSnapToggle.checked) {
-        autoSnapStatusLabel.textContent = 'ON';
-        autoSnapStatusLabel.className = 'text-[11px] text-emerald-400 font-semibold';
-      } else {
-        autoSnapStatusLabel.textContent = 'OFF';
-        autoSnapStatusLabel.className = 'text-[11px] text-slate-500 font-semibold';
-        resetAutoSnapVisuals();
-      }
-    };
-
-    // ================= UPFRONT FORM VALIDATION & BUTTON GATING =================
-    function checkCanConvert() {
-      const hasImage = !!selectedImageBase64;
-      const hasProjectName = !!projectNameInput.value.trim();
-      const hasAuthor = !!authorNameInput.value.trim();
-
-      const isReady = hasImage && hasProjectName && hasAuthor;
-      convertBtn.disabled = !isReady;
-
-      if (!hasImage) {
-        convertBtnText.textContent = 'Upload or Snap Pseudocode First';
-      } else if (!hasProjectName) {
-        convertBtnText.textContent = 'Enter Project Name Above';
-      } else if (!hasAuthor) {
-        convertBtnText.textContent = 'Enter Author Name Above';
-      } else {
-        convertBtnText.textContent = 'Validate Hardware & Convert';
-      }
-    }
-
-    projectNameInput.oninput = () => {
-      checkCanConvert();
-      if (assembledPythonSource) rebuildPythonSource();
-    };
-
-    authorNameInput.oninput = () => {
-      checkCanConvert();
-      if (assembledPythonSource) rebuildPythonSource();
-    };
-
-    // ================= WEBCAM & AUTO-SNAP ENGINE =================
-    modeUploadBtn.onclick = () => {
-      stopCameraStream();
-      modeUploadBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition';
-      modeCameraBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition';
-      uploadModeContainer.classList.remove('hidden');
-      cameraModeContainer.classList.add('hidden');
-    };
-
-    modeCameraBtn.onclick = async () => {
-      modeCameraBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition';
-      modeUploadBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition';
-      uploadModeContainer.classList.add('hidden');
-      cameraModeContainer.classList.remove('hidden');
-      await startCameraStream();
-    };
-
-    async function startCameraStream() {
-      stopCameraStream();
-      resetAutoSnapVisuals();
-      cameraPromptTag.textContent = 'Requesting Camera Access...';
-
-      try {
-        let stream = null;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: { ideal: currentFacingMode },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
-            },
-            audio: false
-          });
-        } catch (strictErr) {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        }
-
-        cameraStream = stream;
-        webcamVideo.srcObject = cameraStream;
-
-        webcamVideo.onloadedmetadata = async () => {
-          try {
-            await webcamVideo.play();
-            cameraPromptTag.textContent = 'Hold pseudocode steady in box';
-            startAutoSnapDetectionLoop();
-          } catch (e) {
-            console.error('Video play error:', e);
-          }
-        };
-
-        try {
-          await webcamVideo.play();
-          cameraPromptTag.textContent = 'Hold pseudocode steady in box';
-          startAutoSnapDetectionLoop();
-        } catch (e) {}
-
-      } catch (err) {
-        console.error('Camera access rejected or unavailable:', err);
-        alert('Could not start webcam. Please verify camera permissions in your browser or use "Upload File".');
-        modeUploadBtn.click();
-      }
-    }
-
-    function stopCameraStream() {
-      if (autoSnapTimer) {
-        clearInterval(autoSnapTimer);
-        autoSnapTimer = null;
-      }
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => {
-          try { track.stop(); } catch (e) {}
-        });
-        cameraStream = null;
-      }
-      webcamVideo.srcObject = null;
-      resetAutoSnapVisuals();
-    }
-
-    switchCameraBtn.onclick = async (e) => {
-      e.stopPropagation();
-      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-      await startCameraStream();
-    };
-
-    cancelCameraBtn.onclick = () => {
-      modeUploadBtn.click();
-    };
-
-    function startAutoSnapDetectionLoop() {
-      if (autoSnapTimer) clearInterval(autoSnapTimer);
-
-      const sampleCanvas = document.createElement('canvas');
-      sampleCanvas.width = 96;
-      sampleCanvas.height = 72;
-      const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
-
-      steadyConsecutiveFrames = 0;
-      prevFrameData = null;
-      isAutoSnapping = false;
-
-      autoSnapTimer = setInterval(() => {
-        if (!autoSnapToggle.checked || isAutoSnapping) return;
-        if (!webcamVideo.videoWidth || webcamVideo.readyState < 2) return;
-
-        const sx = webcamVideo.videoWidth * 0.15;
-        const sy = webcamVideo.videoHeight * 0.15;
-        const sWidth = webcamVideo.videoWidth * 0.7;
-        const sHeight = webcamVideo.videoHeight * 0.7;
-
-        sampleCtx.drawImage(webcamVideo, sx, sy, sWidth, sHeight, 0, 0, sampleCanvas.width, sampleCanvas.height);
-        const imgData = sampleCtx.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height).data;
-
-        let totalLuma = 0;
-        const pixelCount = sampleCanvas.width * sampleCanvas.height;
-        const lumaValues = new Float32Array(pixelCount);
-
-        for (let i = 0, j = 0; i < imgData.length; i += 4, j++) {
-          const luma = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
-          lumaValues[j] = luma;
-          totalLuma += luma;
-        }
-
-        const avgLuma = totalLuma / pixelCount;
-
-        let varianceSum = 0;
-        for (let j = 0; j < pixelCount; j++) {
-          const diff = lumaValues[j] - avgLuma;
-          varianceSum += diff * diff;
-        }
-        const variance = varianceSum / pixelCount;
-
-        let motionDelta = 999;
-        if (prevFrameData) {
-          let deltaSum = 0;
-          for (let j = 0; j < pixelCount; j++) {
-            deltaSum += Math.abs(lumaValues[j] - prevFrameData[j]);
-          }
-          motionDelta = deltaSum / pixelCount;
-        }
-        prevFrameData = lumaValues;
-
-        const isPaperPresent = avgLuma > 75 && variance > 220;
-        const isSteady = motionDelta < 7.5;
-
-        if (isPaperPresent && isSteady) {
-          steadyConsecutiveFrames++;
-          const progressPercent = Math.min(100, Math.round((steadyConsecutiveFrames / REQUIRED_STEADY_FRAMES) * 100));
-          
-          updateAutoSnapHUD(true, progressPercent);
-
-          if (steadyConsecutiveFrames >= REQUIRED_STEADY_FRAMES) {
-            isAutoSnapping = true;
-            triggerAutoCapture();
-          }
-        } else {
-          if (steadyConsecutiveFrames > 0) {
-            steadyConsecutiveFrames = Math.max(0, steadyConsecutiveFrames - 2);
-            const progressPercent = Math.min(100, Math.round((steadyConsecutiveFrames / REQUIRED_STEADY_FRAMES) * 100));
-            updateAutoSnapHUD(false, progressPercent);
-          } else {
-            resetAutoSnapVisuals();
-          }
-        }
-
-      }, 100);
-    }
-
-    function updateAutoSnapHUD(isSteady, progressPercent) {
-      targetBox.className = 'absolute inset-4 border-2 border-emerald-400 rounded-lg pointer-events-none flex flex-col items-center justify-between p-3 transition-colors duration-150';
-      progressRingContainer.classList.remove('hidden');
-      progressRingCircle.setAttribute('stroke-dasharray', `${progressPercent}, 100`);
-
-      const remainingSeconds = Math.max(1, Math.ceil(((100 - progressPercent) / 100) * 3));
-      countdownNumber.textContent = remainingSeconds;
-
-      if (isSteady) {
-        cameraPromptTag.textContent = `Holding steady... snapping in ${remainingSeconds}s`;
-        cameraPromptTag.className = 'text-[11px] font-bold text-emerald-300 bg-black/90 px-3 py-1 rounded backdrop-blur border border-emerald-500/80 shadow-lg';
-      } else {
-        cameraPromptTag.textContent = 'Hold still...';
-        cameraPromptTag.className = 'text-[11px] font-semibold text-amber-300 bg-black/80 px-2.5 py-1 rounded backdrop-blur border border-amber-500/60';
-      }
-    }
-
-    function resetAutoSnapVisuals() {
-      targetBox.className = 'absolute inset-4 border-2 border-dashed border-amber-400/70 rounded-lg pointer-events-none flex flex-col items-center justify-between p-3 transition-colors duration-200';
-      progressRingContainer.classList.add('hidden');
-      countdownNumber.textContent = '';
-      cameraPromptTag.textContent = 'Hold pseudocode steady in box';
-      cameraPromptTag.className = 'text-[11px] font-medium text-amber-300 bg-black/80 px-2.5 py-1 rounded backdrop-blur border border-slate-700/60';
-    }
-
-    function triggerAutoCapture() {
-      shutterFlash.classList.add('shutter-flash');
-      setTimeout(() => {
-        shutterFlash.classList.remove('shutter-flash');
-        executePhotoSnap('Auto_Captured_Pseudocode.jpg');
-      }, 150);
-    }
-
-    snapPhotoBtn.onclick = () => {
-      if (!cameraStream) {
-        alert('Camera stream is not active.');
-        return;
-      }
-      shutterFlash.classList.add('shutter-flash');
-      setTimeout(() => {
-        shutterFlash.classList.remove('shutter-flash');
-        executePhotoSnap('Manual_Webcam_Snap.jpg');
-      }, 100);
-    };
-
-    function executePhotoSnap(label) {
-      const width = webcamVideo.videoWidth || webcamVideo.clientWidth || 1280;
-      const height = webcamVideo.videoHeight || webcamVideo.clientHeight || 720;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(webcamVideo, 0, 0, width, height);
-
-      optimizeAndLoadFromCanvas(canvas, label);
-      stopCameraStream();
-      modeUploadBtn.click();
-    }
-
-    // ================= FILE UPLOAD & PREPARATION =================
-    dropzone.onclick = (e) => {
-      if (e.target !== removeFileBtn) fileInput.click();
-    };
-
-    dropzone.ondragover = (e) => {
-      e.preventDefault();
-      dropzone.classList.add('border-blue-500', 'bg-slate-900');
-    };
-
-    dropzone.ondragleave = () => {
-      dropzone.classList.remove('border-blue-500', 'bg-slate-900');
-    };
-
-    dropzone.ondrop = (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('border-blue-500', 'bg-slate-900');
-      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    };
-
-    fileInput.onchange = () => {
-      if (fileInput.files.length) handleFile(fileInput.files[0]);
-    };
-
-    removeFileBtn.onclick = (e) => {
-      e.stopPropagation();
-      resetUpload();
-    };
-
-    function resetUpload() {
-      selectedImageBase64 = null;
-      fileInput.value = '';
-      previewContainer.classList.add('hidden');
-      dropzonePrompt.classList.remove('hidden');
-      checkCanConvert();
-    }
-
-    function handleFile(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          optimizeAndLoadFromCanvas(canvas, file.name);
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function optimizeAndLoadFromCanvas(sourceCanvas, label = 'Captured Image') {
-      const maxDim = 1600;
-      let width = sourceCanvas.width;
-      let height = sourceCanvas.height;
-
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
-
-      const scaledCanvas = document.createElement('canvas');
-      scaledCanvas.width = width;
-      scaledCanvas.height = height;
-      const ctx = scaledCanvas.getContext('2d');
-      ctx.drawImage(sourceCanvas, 0, 0, width, height);
-
-      const optimizedDataUrl = scaledCanvas.toDataURL('image/jpeg', 0.85);
-      selectedImageBase64 = optimizedDataUrl.split(',')[1];
-      selectedImageMime = 'image/jpeg';
-
-      fileNameDisplay.textContent = label;
-      imagePreview.src = optimizedDataUrl;
-      dropzonePrompt.classList.add('hidden');
-      previewContainer.classList.remove('hidden');
-      checkCanConvert();
-    }
-
-    function setStatus(loading, message = '') {
-      if (loading) {
-        statusBox.classList.remove('hidden');
-        statusMessage.textContent = message;
-        convertBtn.disabled = true;
-        convertBtnText.textContent = 'Analyzing...';
-      } else {
-        statusBox.classList.add('hidden');
-        checkCanConvert();
-      }
-    }
-
-    // ================= HARDWARE CONFIG BUILDER FOR BLOCKS =================
-    function buildRobotConfigFromHardware(detectedHardware) {
-      const config = [];
-      if (!detectedHardware || !Array.isArray(detectedHardware)) return config;
-
-      detectedHardware.forEach(hw => {
-        const p = (hw.peripheral || '').toLowerCase();
-        const portStr = (hw.port || '').toLowerCase();
-
-        if (p.includes('motor') || p.includes('drive')) {
-          const ports = (portStr.match(/\d+/g) || []).map(Number);
-          const p1 = ports[0] || 1;
-          const p2 = ports[1] || 2;
-          config.push({
-            port: [p1, p2, null],
-            name: "Drivetrain",
-            customName: false,
-            deviceType: "Drivetrain",
-            deviceClass: "smartdrive",
-            setting: {
-              type: "2-motor",
-              wheelSize: "wheel4in",
-              gear: "ratio18_1",
-              gearRatio: "1:1",
-              direction: "fwd",
-              gyroType: "none",
-              width: "295",
-              unit: "mm",
-              wheelbase: "40",
-              wheelbaseUnit: "mm",
-              xOffset: "0",
-              xOffsetUnit: "mm",
-              yOffset: "0",
-              yOffsetUnit: "mm",
-              thetaOffset: "180"
-            }
-          });
-        } else if (p.includes('led')) {
-          const letterMatch = portStr.match(/[a-h]/i);
-          const letter = letterMatch ? letterMatch[0].toUpperCase() : 'A';
-          const portNum = letter.charCodeAt(0) - 64;
-          config.push({
-            port: [portNum],
-            name: `LED${letter}`,
-            customName: false,
-            deviceType: "LED",
-            deviceClass: "led",
-            setting: {},
-            triportSourcePort: 22
-          });
-        } else if (p.includes('distance')) {
-          const portMatch = portStr.match(/\d+/);
-          const portNum = portMatch ? Number(portMatch[0]) : 3;
-          config.push({
-            port: [portNum],
-            name: `Distance${portNum}`,
-            customName: false,
-            deviceType: "Distance",
-            deviceClass: "distance",
-            setting: {}
-          });
-        }
-      });
-
-      return config;
-    }
-
-    // ================= CODE ASSEMBLY & VEX TEMPLATING =================
-    function rebuildPythonSource() {
-      const projName = (projectNameInput.value.trim() || 'VEXcode_Project').replace(/[^a-zA-Z0-9_\-]/g, '_');
-      const author = authorNameInput.value.trim() || 'Walton Robotics Student';
-      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-
-      assembledPythonSource = 
-`#region VEXcode Generated Robot Configuration
-from vex import *
-import urandom
-import math
-
-# Brain should be defined by default
-brain = Brain()
-
-# wait for rotation sensor to fully initialize
-wait(30, MSEC)
-
-# Make random actually random
-def initializeRandomSeed():
-    wait(100, MSEC)
-    random = brain.battery.voltage(MV) + brain.battery.current(CurrentUnits.AMP) * 100 + brain.timer.system_high_res()
-    urandom.seed(int(random))
-      
-# Set random seed 
-initializeRandomSeed()
-
-def play_vexcode_sound(sound_name):
-    # Helper to make playing sounds from the V5 in VEXcode easier
-    print("VEXPlaySound:" + sound_name)
-    wait(5, MSEC)
-
-# add a small delay to make sure we don't print in the middle of the REPL header
-wait(200, MSEC)
-# clear the console to make sure we don't have the REPL in the console
-print("\\033[2J")
-
-#endregion VEXcode Generated Robot Configuration
-
-# ------------------------------------------
-# 
-# \tProject:      ${projName}
-# \tAuthor:       ${author}
-# \tCreated:      ${dateStr}
-# \tDescription:  VEXcode V5 Python Project generated from pseudocode
-# 
-# ------------------------------------------
-
-# Library imports
-from vex import *
-
-# ==========================================
-# HARDWARE CONFIGURATION (Validated Gatekeeper)
-# ==========================================
-${rawHardwareDeclarations || '# No hardware peripherals configured'}
-
-# ==========================================
-# USER AUTONOMOUS LOGIC
-# ==========================================
-${rawUserProjectCode || '# No user logic written'}
-`;
-
-      updateViewerContent();
-    }
-
-    function updateViewerContent() {
-      const projName = (projectNameInput.value.trim() || 'VEXcode_Project').replace(/[^a-zA-Z0-9_\-]/g, '_');
-      
-      if (currentActiveView === 'python') {
-        editorFileNameDisplay.textContent = `${projName}.v5python`;
-        codeOutput.textContent = assembledPythonSource;
-        copyBtnText.textContent = 'Copy Python';
-      } else {
-        editorFileNameDisplay.textContent = `${projName}.v5blocks (workspace.xml)`;
-        codeOutput.textContent = rawBlocksWorkspaceXml;
-        copyBtnText.textContent = 'Copy Blocks XML';
-      }
-    }
-
-    viewPythonTabBtn.onclick = () => {
-      currentActiveView = 'python';
-      viewPythonTabBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition flex items-center gap-1.5';
-      viewBlocksTabBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5';
-      updateViewerContent();
-    };
-
-    viewBlocksTabBtn.onclick = () => {
-      currentActiveView = 'blocks';
-      viewBlocksTabBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-emerald-600 text-white transition flex items-center gap-1.5';
-      viewPythonTabBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5';
-      updateViewerContent();
-    };
-
-    // Official VEXcode .v5python JSON container generator
-    function generateV5PythonContainer(pythonText) {
-      return JSON.stringify({
-        "mode": "Text",
-        "hardwareTarget": "brain",
-        "textContent": pythonText,
-        "textLanguage": "python",
-        "robotConfig": [],
-        "slot": 0,
-        "platform": "V5",
-        "sdkVersion": "20240802.15.00.00",
-        "appVersion": "4.68.0",
-        "fileFormat": "2.0.0",
-        "targetBrainGen": "First",
-        "v5Sounds": [
-          {
-            "name": "game over",
-            "url": "static/sounds/mixkit-arcade-retro-game-over-213.wav"
-          }
-        ],
-        "v5SoundsEnabled": false,
-        "aiVisionSettings": {
-          "colors": [],
-          "codes": [],
-          "tags": true,
-          "AIObjects": true,
-          "AIObjectModel": [],
-          "aiModelDropDownValue": null
-        }
-      }, null, 2);
-    }
-
-    // Official VEXcode .v5blocks JSON container generator
-    function generateV5BlocksContainer(workspaceXml, robotConfig) {
-      return JSON.stringify({
-        "mode": "Blocks",
-        "hardwareTarget": "brain",
-        "workspace": workspaceXml,
-        "robotConfig": robotConfig || [],
-        "slot": 0,
-        "platform": "V5",
-        "sdkVersion": "20240802.15.00.00",
-        "appVersion": "4.68.0",
-        "fileFormat": "2.0.0",
-        "targetBrainGen": "First",
-        "v5Sounds": [
-          {
-            "name": "game over",
-            "url": "static/sounds/mixkit-arcade-retro-game-over-213.wav"
-          }
-        ],
-        "v5SoundsEnabled": false,
-        "downloadLanguage": "python",
-        "aiVisionSettings": {
-          "colors": [],
-          "codes": [],
-          "tags": true,
-          "AIObjects": true,
-          "AIObjectModel": [],
-          "aiModelDropDownValue": null
-        },
-        "virtualSkillsYear": "2023"
-      }, null, 2);
-    }
-
-    // ================= CONVERSION ENGINE VIA CLOUDFLARE PROXY =================
-    convertBtn.onclick = async () => {
-      const rawProj = projectNameInput.value.trim();
-      const rawAuthor = authorNameInput.value.trim();
-
-      if (!rawProj || !rawAuthor) {
-        alert('Please enter both the Project Name and Author Name before running the converter.');
-        return;
-      }
-
-      if (!selectedImageBase64) return;
-
-      emptyState.classList.add('hidden');
-      rejectionCard.classList.add('hidden');
-      successCard.classList.add('hidden');
-
-      try {
-        setStatus(true, 'Connecting to Cloud Proxy...');
-        const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
-
-        const promptText = `
-You are the strict Hardware Validator and VEXcode V5 Python and Blocks Generator for high school robotics students.
-Project Name: "${rawProj}"
-Author: "${rawAuthor}"
-Analyze the handwritten or printed pseudocode image provided.
-
-CRITICAL HARDWARE RULES:
-1. STRICT PORT/PIN GATEKEEPER:
-   - Check every motor, motor group, LED, bumper, distance sensor, optical sensor, or peripheral mentioned.
-   - Every peripheral MUST have an explicit brain port or 3-wire pin assignment (e.g., 'pin A', 'pins 1+2', 'port 3').
-   - IF ANY PERIPHERAL DOES NOT DECLARE A PORT/PIN:
-     Immediately reject the code. Set "passedGatekeeper": false.
-     List every single missing peripheral in "missingPeripherals".
-     Provide a clear rejection reason in "rejectionReason".
-     Set "hardwareDeclarations" to "", "userProjectCode" to "", and "v5blocksXml" to "".
-
-2. LITERAL LOGIC PRESERVATION (DO NOT FIX BUGS):
-   - If the pseudocode passes the gatekeeper, prepare real VEXcode V5 Python code AND official VEXcode V5 Blocks XML.
-   - LITERAL LOGIC: If a student starts a motor/drive forward, but omits a "stop" instruction, DO NOT ADD A STOP COMMAND. The motor must continue spinning forever in code.
-   - If they include a while loop without a sleep or exit, write the literal code.
-   - Identify these bugs in the "runtimeNotes" array.
-
-3. STRICT VEXCODE V5 BLOCKS AST & XML SPECIFICATION:
-   - Generate genuine VEXcode V5 Blockly XML inside "v5blocksXml" using the EXACT block types from the VEXcode V5 Blockly engine:
-     * When Started: <block type="v5_events_when_started" id="when_started" deletable="false" x="70" y="110">
-     * Set Variable: <block type="v5_variables_set_variable" id="..."><field name="VARIABLE" id="var_id">varName</field><value name="VALUE"><shadow type="math_number_string" id="..."><field name="NUM">300</field></shadow></value><next>...</next></block>
-     * Use Variable: <block type="v5_variables_variable" id="..."><field name="VARIABLE" id="var_id">varName</field></block>
-     * Drive For: <block type="v5_drivetrain_drive_for" id="..."><field name="DIRECTION">fwd</field><field name="UNITS">mm</field><field name="anddontwait_mutator">false</field><value name="AMOUNT"><shadow type="math_number" id="..."><field name="NUM">200</field></shadow><block type="v5_variables_variable" id="..."><field name="VARIABLE" id="var_id">varName</field></block></value><next>...</next></block>
-     * Drive (Continuous): <block type="v5_drivetrain_drive" id="..."><field name="DIRECTION">fwd</field><next>...</next></block>
-     * Stop Driving: <block type="v5_motion_stop_driving" id="..."><next>...</next></block>
-     * LED On/Off: <block type="v5_looks_set_led" id="..."><field name="LED">LEDA</field><field name="STATE">on</field><next>...</next></block> (STATE is "on" or "off")
-     * Wait: <block type="v5_control_wait" id="..."><value name="DURATION"><shadow type="math_positive_number" id="..."><field name="NUM">0.5</field></shadow></value><next>...</next></block>
-     * Repeat: <block type="v5_control_repeat" id="..."><value name="TIMES"><shadow type="math_whole_number" id="..."><field name="NUM">3</field></shadow></value><statement name="SUBSTACK">...inner chain...</statement><next>...</next></block>
-     * While: <block type="v5_control_while" id="..."><value name="CONDITION"><block type="v5_operator_comparison" id="..."><field name="COMPARISON">&gt;</field><value name="NUM1"><shadow type="math_number_string" id="..."><field name="NUM">0</field></shadow><block type="v5_sensing_distance_object_distance" id="..."><field name="DISTANCE">Distance3</field><field name="UNITS">mm</field></block></value><value name="NUM2"><shadow type="math_number_string" id="..."><field name="NUM">200</field></shadow></value></block></value><statement name="SUBSTACK">...inner chain...</statement><next>...</next></block>
-   - Also output the "robotConfig" array in JSON for all detected hardware matching device names in the blocks (e.g., "Drivetrain", "LEDA", "Distance3").
-
-OUTPUT FORMAT:
-Return ONLY valid JSON matching this schema with NO extra markdown wrap or prose:
-{
-  "passedGatekeeper": true,
-  "rejectionReason": "",
-  "missingPeripherals": [],
-  "detectedHardware": [
-    {"peripheral": "LED", "port": "3-Wire Pin A"},
-    {"peripheral": "Motor Group", "port": "Smart Ports 1, 2"},
-    {"peripheral": "Distance Sensor", "port": "Smart Port 3"}
-  ],
-  "runtimeNotes": [
-    "Motor group on ports 1+2 is stopped at the end of the script."
-  ],
-  "rawTranscription": "Line-by-line transcription of the student paper...",
-  "hardwareDeclarations": "led_a = DigitalOut(brain.three_wire_port.a)\\nmotor_1 = Motor(Ports.PORT1, GearSetting.RATIO_18_1, False)\\nmotor_2 = Motor(Ports.PORT2, GearSetting.RATIO_18_1, True)\\nmotor_group = MotorGroup(motor_1, motor_2)\\ndistance_sensor = Distance(Ports.PORT3)",
-  "userProjectCode": "distance1 = 300\\nmotor_group.spin_for(FORWARD, distance1, MM)\\nmotor_group.stop()\\n\\nfor count in range(3):\\n    led_a.set(True)\\n    wait(0.5, SECONDS)\\n    led_a.set(False)\\n    wait(0.5, SECONDS)\\n\\nwhile distance_sensor.object_distance(DistanceUnits.MM) > 200:\\n    motor_group.spin(FORWARD)\\n\\nmotor_group.stop()",
-  "robotConfig": [],
-  "v5blocksXml": "<xml xmlns=\\"https://developers.google.com/blockly/xml\\">...</xml>"
-}
-`;
-
-        const geminiPayload = {
-          contents: [{
-            parts: [
-              { text: promptText },
-              {
-                inline_data: {
-                  mime_type: selectedImageMime,
-                  data: selectedImageBase64
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.1
-          }
-        };
-
-        let response;
-        let data;
-
-        for (const model of models) {
-          setStatus(true, `Processing with ${model}...`);
-          try {
-            response = await fetch(WORKER_PROXY_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                model: model,
-                payload: geminiPayload
-              })
-            });
-
-            data = await response.json();
-
-            if (response.status === 503 || response.status === 429 || response.status === 404) {
-              console.warn(`Model ${model} unavailable (HTTP ${response.status}). Trying fallback...`);
-              continue;
-            }
-
-            if (response.ok) break;
-          } catch (netErr) {
-            console.warn(`Attempt with ${model} failed:`, netErr);
-          }
-        }
-
-        if (!response || !response.ok) {
-          throw new Error(data?.error?.message || `Proxy server request failed (HTTP ${response?.status}).`);
-        }
-
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawText) throw new Error("No structured output returned from proxy.");
-
-        let cleanJsonStr = rawText.trim();
-        if (cleanJsonStr.startsWith('```')) {
-          cleanJsonStr = cleanJsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-        }
-
-        let result;
-        try {
-          result = JSON.parse(cleanJsonStr);
-        } catch (e) {
-          throw new Error("Unable to parse conversion response. Try snapping a clearer photo.");
-        }
-
-        renderResults(result);
-
-      } catch (err) {
-        console.error("Conversion error:", err);
-        alert(`Hardware Gatekeeper Error:\n${err.message}`);
-        emptyState.classList.remove('hidden');
-      } finally {
-        setStatus(false);
-      }
-    };
-
-    function renderResults(res) {
-      if (!res.passedGatekeeper) {
-        rejectionSummary.textContent = res.rejectionReason || "One or more peripherals do not have designated physical ports.";
-        missingPeripheralsList.innerHTML = '';
-        (res.missingPeripherals || ['Unspecified peripheral missing port']).forEach(item => {
-          const li = document.createElement('li');
-          li.textContent = item;
-          missingPeripheralsList.appendChild(li);
-        });
-        rejectionCard.classList.remove('hidden');
-      } else {
-        rawHardwareDeclarations = res.hardwareDeclarations || res.robotConfigCode || '';
-        rawUserProjectCode = res.userProjectCode || res.vexPythonCode || '';
-        
-        // Assemble valid robotConfig for blocks export
-        if (res.robotConfig && Array.isArray(res.robotConfig) && res.robotConfig.length > 0) {
-          currentRobotConfig = res.robotConfig;
-        } else {
-          currentRobotConfig = buildRobotConfigFromHardware(res.detectedHardware);
-        }
-
-        // Use the generated Blockly XML directly
-        if (res.v5blocksXml && res.v5blocksXml.includes('v5_events_when_started')) {
-          rawBlocksWorkspaceXml = res.v5blocksXml;
-        } else {
-          rawBlocksWorkspaceXml = `<xml xmlns="[https://developers.google.com/blockly/xml](https://developers.google.com/blockly/xml)"><block type="v5_events_when_started" id="start" deletable="false" x="70" y="110"><next><block type="v5_drivetrain_drive_for" id="d1"><field name="DIRECTION">fwd</field><field name="UNITS">mm</field><field name="anddontwait_mutator">false</field><value name="AMOUNT"><shadow type="math_number" id="s1"><field name="NUM">200</field></shadow></value><next><block type="v5_motion_stop_driving" id="s2"></block></next></block></next></block></xml>`;
-        }
-
-        transcriptionOutput.textContent = res.rawTranscription || 'No transcription available.';
-
-        // Populate port mapping
-        detectedPortsList.innerHTML = '';
-        (res.detectedHardware || []).forEach(hw => {
-          const li = document.createElement('li');
-          li.className = 'flex justify-between border-b border-slate-800/80 py-1';
-          li.innerHTML = `<span class="text-slate-400">${hw.peripheral}</span><span class="text-emerald-400 font-bold">${hw.port}</span>`;
-          detectedPortsList.appendChild(li);
-        });
-
-        // Populate runtime logic notes
-        runtimeNotesList.innerHTML = '';
-        (res.runtimeNotes || ['All logic loops and commands appear standard.']).forEach(note => {
-          const li = document.createElement('li');
-          li.className = 'flex items-start gap-1.5';
-          li.innerHTML = `<span class="text-amber-400 mt-0.5">&#8226;</span><span>${note}</span>`;
-          runtimeNotesList.appendChild(li);
-        });
-
-        rebuildPythonSource();
-        successCard.classList.remove('hidden');
-      }
-    }
-
-    // Copy Utility (copies Python or Blocks XML depending on active tab)
-    copyCodeBtn.onclick = () => {
-      const contentToCopy = currentActiveView === 'python' ? assembledPythonSource : rawBlocksWorkspaceXml;
-      if (!contentToCopy) return;
-
-      navigator.clipboard.writeText(contentToCopy).then(() => {
-        const oldText = copyBtnText.textContent;
-        copyBtnText.textContent = 'Copied!';
-        setTimeout(() => copyBtnText.textContent = oldText, 2000);
-      });
-    };
-
-    // Download .v5python Project File
-    downloadCodeBtn.onclick = () => {
-      const rawName = projectNameInput.value.trim() || 'VEXcode_Project';
-      const safeBaseName = rawName.replace(/\.(v5python|v5blocks)$/i, '').replace(/[^a-zA-Z0-9_\-]/g, '_');
-      const finalFileName = `${safeBaseName}.v5python`;
-
-      const v5ProjectJson = generateV5PythonContainer(assembledPythonSource);
-      triggerFileDownload(v5ProjectJson, finalFileName);
-    };
-
-    // Download .v5blocks Project File
-    downloadBlocksBtn.onclick = () => {
-      const rawName = projectNameInput.value.trim() || 'VEXcode_Project';
-      const safeBaseName = rawName.replace(/\.(v5python|v5blocks)$/i, '').replace(/[^a-zA-Z0-9_\-]/g, '_');
-      const finalFileName = `${safeBaseName}.v5blocks`;
-
-      const v5BlocksJson = generateV5BlocksContainer(rawBlocksWorkspaceXml, currentRobotConfig);
-      triggerFileDownload(v5BlocksJson, finalFileName);
-    };
-
-    function triggerFileDownload(jsonString, fileName) {
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    // Initial check on load
-    checkCanConvert();
-  </script>
+<script src="script.js?v=105"></script>
 </body>
 </html>
