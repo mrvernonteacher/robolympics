@@ -102,6 +102,26 @@ th { background-color: var(--black); color: white; }
 .match-timer-btn { background-color: var(--blue); color: white; border: none; border-radius: 3px; font-size: 10px; padding: 3px 6px; cursor: pointer; margin-left: 5px; }
 .match-timer-btn:hover { background-color: #002277; }
 
+/* Robathalon Timer Panel */
+.athalon-timer-panel {
+    background: #eef2f7;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+.qualifier-badge {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
 /* Status Banner */
 .award-status { font-size: 12px; margin-top: 8px; padding: 6px; border-radius: 4px; text-align: center; font-weight: bold; background: #eee; }
 .status-awarded { background: #e8f8f5; color: #117a65; border: 1px solid #a3e4d7; }
@@ -203,7 +223,7 @@ th { background-color: var(--black); color: white; }
     color: #666;
 }
 
-.match-time-input { width: 60px; padding: 2px 4px; font-size: 10px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #bbb; border-radius: 3px; background: #fff; color: #111; margin-right: 3px; }
+.match-time-input { width: 65px; padding: 2px 4px; font-size: 11px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #bbb; border-radius: 3px; background: #fff; color: #111; }
 .match-time-input:focus { border-color: var(--blue); outline: none; background: #ffffe0; }
 
 .dq-flag-btn { background: transparent; border: none; cursor: pointer; padding: 0 4px; font-size: 14px; line-height: 1; opacity: 0.35; filter: grayscale(100%); transition: transform 0.15s, opacity 0.15s, filter 0.15s; }
@@ -260,7 +280,7 @@ th { background-color: var(--black); color: white; }
 .modal-winner-btn { padding: 14px; font-size: 16px; background-color: var(--green); border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: bold; }
 .modal-winner-btn:hover { filter: brightness(0.9); }
 
-/* Large Single Stop Button for Dash & Relay */
+/* Large Single Stop Button */
 .btn-single-stop {
     width: 100%;
     max-width: 360px;
