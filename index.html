@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robo-Lympics Standings</title>
-    <link rel="stylesheet" href="style.css?v=105">
+    <link rel="stylesheet" href="style.css?v=110">
 </head>
 <body>
 
@@ -53,7 +53,7 @@
         </div>
 
         <div style="margin-top: 20px;">
-            <button onclick="closeMatchModal()" style="background-color: #888; font-size: 11px;">Cancel / Dismiss to Bracket</button>
+            <button onclick="closeMatchModal()" style="background-color: #888; font-size: 11px;">Cancel / Dismiss</button>
         </div>
     </div>
 </div>
@@ -123,8 +123,100 @@
     </div>
 </div>
 
-<!-- CONTAINER WHERE SCRIPT RENDERS THE 4 BRACKET EVENTS -->
+<!-- BRACKET EVENTS CONTAINER (TUG, DASH, RELAY) -->
 <div id="bracket-events-container"></div>
+
+<!-- ROBATHALON TAB (EVENT 4 - TIMED TRIAL WITH TOP 3 FINALS) -->
+<div id="event-athalon" class="tab-content">
+    <h2 style="text-align: center; margin-bottom: 5px;">Robathalon (Individual Time Trial)</h2>
+    <p style="text-align: center; margin-bottom: 20px;">
+        <em>Round 1: All teams run individually against the clock. Top 3 advance to Round 2 (Finals) to determine Gold, Silver, and Bronze!</em>
+    </p>
+
+    <div class="event-embed" id="athalon-canva-embed"></div>
+
+    <div class="split-view">
+        <!-- Class 1 -->
+        <div class="class-section c1-border">
+            <h3 class="title-c1">Guiendon Robathalon</h3>
+
+            <!-- Timer / Queue Control Box -->
+            <div class="athalon-timer-panel admin-only">
+                <div style="font-weight: bold; font-size: 13px; color: #333; margin-bottom: 8px;">⏱️ Individual Run Launcher</div>
+                <div style="display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;">
+                    <select id="athalon-round-select-1" style="font-weight: bold;" onchange="updateAthalonTeamDropdown(1)">
+                        <option value="1">Round 1 (Qualifying)</option>
+                        <option value="2">Round 2 (Top 3 Finals)</option>
+                    </select>
+                    <select id="athalon-team-select-1" style="flex-grow: 1; min-width: 140px;"></select>
+                    <button onclick="launchAthalonRun(1)" style="background-color: var(--green); padding: 7px 14px;">▶ Start Run</button>
+                </div>
+            </div>
+
+            <div class="bracket-wrapper" id="athalon-wrapper-1">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">Rank</th>
+                            <th>Team</th>
+                            <th style="width: 22%;">Round 1</th>
+                            <th style="width: 22%;">Round 2 (Finals)</th>
+                            <th style="width: 14%;">Medal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="athalonBody1"></tbody>
+                </table>
+                <div id="podium-overlay-athalon-1" class="event-podium-overlay" style="display:none;"></div>
+            </div>
+
+            <div id="status-athalon-1" class="award-status">Points Not Awarded</div>
+            <div class="points-action-bar admin-only">
+                <button onclick="awardAthalonPoints(1)" class="points-btn">Award Points (5-3-1)</button>
+                <button onclick="revokeAthalonPoints(1)" class="btn-warning">Rescore / Reset Points</button>
+            </div>
+        </div>
+
+        <!-- Class 2 -->
+        <div class="class-section c2-border">
+            <h3 class="title-c2">Vernon Robathalon</h3>
+
+            <!-- Timer / Queue Control Box -->
+            <div class="athalon-timer-panel admin-only">
+                <div style="font-weight: bold; font-size: 13px; color: #333; margin-bottom: 8px;">⏱️ Individual Run Launcher</div>
+                <div style="display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;">
+                    <select id="athalon-round-select-2" style="font-weight: bold;" onchange="updateAthalonTeamDropdown(2)">
+                        <option value="1">Round 1 (Qualifying)</option>
+                        <option value="2">Round 2 (Top 3 Finals)</option>
+                    </select>
+                    <select id="athalon-team-select-2" style="flex-grow: 1; min-width: 140px;"></select>
+                    <button onclick="launchAthalonRun(2)" style="background-color: var(--green); padding: 7px 14px;">▶ Start Run</button>
+                </div>
+            </div>
+
+            <div class="bracket-wrapper" id="athalon-wrapper-2">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">Rank</th>
+                            <th>Team</th>
+                            <th style="width: 22%;">Round 1</th>
+                            <th style="width: 22%;">Round 2 (Finals)</th>
+                            <th style="width: 14%;">Medal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="athalonBody2"></tbody>
+                </table>
+                <div id="podium-overlay-athalon-2" class="event-podium-overlay" style="display:none;"></div>
+            </div>
+
+            <div id="status-athalon-2" class="award-status">Points Not Awarded</div>
+            <div class="points-action-bar admin-only">
+                <button onclick="awardAthalonPoints(2)" class="points-btn">Award Points (5-3-1)</button>
+                <button onclick="revokeAthalonPoints(2)" class="btn-warning">Rescore / Reset Points</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- BOT-BOT GOLF TAB -->
 <div id="event-golf" class="tab-content">
@@ -168,6 +260,6 @@
     </div>
 </div>
 
-<script src="script.js?v=105"></script>
+<script src="script.js?v=110"></script>
 </body>
 </html>
