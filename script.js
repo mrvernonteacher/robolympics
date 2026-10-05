@@ -15,7 +15,8 @@ function toggleAdmin() {
             document.getElementById('class1Name').removeAttribute('readonly');
             document.getElementById('class2Name').removeAttribute('readonly');
             renderSetup();
-            eventNames.forEach(ev => { renderBracketUI(ev, 1); renderBracketUI(ev, 2); });
+            bracketEvents.forEach(ev => { renderBracketUI(ev, 1); renderBracketUI(ev, 2); });
+            renderAthalon();
             renderGolf();
         } else if (entered !== null) {
             alert("Incorrect PIN.");
@@ -28,7 +29,8 @@ function toggleAdmin() {
         document.getElementById('class1Name').setAttribute('readonly', 'readonly');
         document.getElementById('class2Name').setAttribute('readonly', 'readonly');
         renderSetup();
-        eventNames.forEach(ev => { renderBracketUI(ev, 1); renderBracketUI(ev, 2); });
+        bracketEvents.forEach(ev => { renderBracketUI(ev, 1); renderBracketUI(ev, 2); });
+        renderAthalon();
         renderGolf();
     }
 }
@@ -42,24 +44,24 @@ const canvaEmbeds = {
     'golf': `<div style="position: relative; width: 100%; height: 0; padding-top: 56.25%; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px;"><iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none;" src="https://www.canva.com/design/DAGTlBnGYXk/94Mxt7VIN-O3aNTG-eO5IA/view?embed" allowfullscreen></iframe></div>`
 };
 
-const eventConfig = [
+const bracketConfig = [
     { id: 'tug', title: 'Tug-o-War', relay: false },
     { id: 'dash', title: 'X-Meter Dash', relay: false },
-    { id: 'relay', title: 'Robo-Relay', relay: true },
-    { id: 'athalon', title: 'Robathalon', relay: false }
+    { id: 'relay', title: 'Robo-Relay', relay: true }
 ];
+const bracketEvents = ['tug', 'dash', 'relay'];
 
 function buildBracketEventsHTML() {
     const container = document.getElementById('bracket-events-container');
     if (!container) return;
 
     let html = '';
-    eventConfig.forEach(ev => {
+    bracketConfig.forEach(ev => {
         const embedHTML = canvaEmbeds[ev.id] ? `<div class="event-embed">${canvaEmbeds[ev.id]}</div>` : '';
         html += `
         <div id="event-${ev.id}" class="tab-content">
             <h2 style="text-align: center; margin-bottom: 5px;">${ev.title} ${ev.relay ? "(Paired Teams)" : ""}</h2>
-            ${ev.relay ? "<p style='text-align: center; margin-bottom: 20px;'><em>Teams compete in pairs. Points awarded at the end will be given to BOTH teams in a paired slot.</em></p>" : ""}
+            ${ev.relay ? "<p style='text-align: center; margin-bottom: 20px;'><em>Teams compete in pairs. Points awarded will be given to BOTH teams in a paired slot.</em></p>" : ""}
             
             ${embedHTML}
 
@@ -122,14 +124,15 @@ function buildBracketEventsHTML() {
     });
 
     container.innerHTML = html;
+
+    const athalonEmbed = document.getElementById('athalon-canva-embed');
+    if (athalonEmbed && canvaEmbeds['athalon']) athalonEmbed.innerHTML = canvaEmbeds['athalon'];
+
     const golfEmbed = document.getElementById('golf-canva-embed');
-    if (golfEmbed && canvaEmbeds['golf']) {
-        golfEmbed.innerHTML = canvaEmbeds['golf'];
-    }
+    if (golfEmbed && canvaEmbeds['golf']) golfEmbed.innerHTML = canvaEmbeds['golf'];
 }
 
 let currentYear = "2026";
-const eventNames = ['tug', 'dash', 'athalon', 'relay'];
 
 function createBlankTemplate() {
     return {
@@ -137,12 +140,12 @@ function createBlankTemplate() {
         class2Name: "Vernon",
         teams: [],
         events: {
-            1: { tug: {}, dash: {}, athalon: {}, relay: {} },
-            2: { tug: {}, dash: {}, athalon: {}, relay: {} }
+            1: { tug: {}, dash: {}, relay: {}, athalon: { runs: {} } },
+            2: { tug: {}, dash: {}, relay: {}, athalon: { runs: {} } }
         },
         awards: {
-            1: { tug: null, dash: null, athalon: null, relay: null, golf: null },
-            2: { tug: null, dash: null, athalon: null, relay: null, golf: null }
+            1: { tug: null, dash: null, relay: null, athalon: null, golf: null },
+            2: { tug: null, dash: null, relay: null, athalon: null, golf: null }
         },
         golfScores: {}
     };
@@ -182,7 +185,8 @@ function renderFullUI() {
         updateClassTitles();
         renderSetup();
         renderLeaderboards();
-        eventNames.forEach(ev => { 
+
+        bracketEvents.forEach(ev => { 
             getCleanOrExistingEvent(ev, 1);
             getCleanOrExistingEvent(ev, 2);
             renderBracketUI(ev, 1); 
@@ -190,6 +194,8 @@ function renderFullUI() {
             updateStatusDisplay(ev, 1);
             updateStatusDisplay(ev, 2);
         });
+
+        renderAthalon();
         renderGolf();
         updateStatusDisplay('golf', 1);
         updateStatusDisplay('golf', 2);
@@ -289,7 +295,7 @@ function promptArchiveYear() {
 }
 
 function formatMs(totalMs, includeMinutes = true) {
-    if (totalMs < 0) totalMs = 0;
+    if (totalMs < 0 || isNaN(totalMs)) totalMs = 0;
     const minutes = Math.floor(totalMs / 60000);
     const seconds = Math.floor((totalMs % 60000) / 1000);
     const hundredths = Math.floor((totalMs % 1000) / 10);
@@ -299,6 +305,21 @@ function formatMs(totalMs, includeMinutes = true) {
         return `${minutes.toString().padStart(2, '0')}:${sStr}.${msStr}`;
     }
     return `${sStr}.${msStr}s`;
+}
+
+function parseTimeToMs(str) {
+    if (!str || typeof str !== 'string') return null;
+    str = str.trim().toLowerCase().replace('s', '');
+    if (str === '' || str === 'dnf' || str === 'dq') return null;
+
+    if (str.includes(':')) {
+        const parts = str.split(':');
+        const min = parseFloat(parts[0]) || 0;
+        const sec = parseFloat(parts[1]) || 0;
+        return Math.round((min * 60 + sec) * 1000);
+    }
+    const val = parseFloat(str);
+    return isNaN(val) ? null : Math.round(val * 1000);
 }
 
 function playBeep(freq = 440, duration = 0.15) {
@@ -414,7 +435,7 @@ function buildPodiumHTML(gold, silver, bronze, title = "Event Champions", isOver
                 <div class="podium-block">3</div>
             </div>
         </div>
-        ${isOverlay ? `<div class="podium-hover-hint">🔍 Hover cursor over bracket to reveal & edit/rescore</div>` : ''}
+        ${isOverlay ? `<div class="podium-hover-hint">🔍 Hover cursor over table to reveal & edit</div>` : ''}
     `;
 }
 
@@ -435,12 +456,12 @@ let dualRaceSplitStrings = [];
 function openMatchTimer(eventId, classId, matchId, matchTitle) {
     if (!isAdmin) return;
     const ev = getCleanOrExistingEvent(eventId, classId);
-    const t1 = ev[matchId][0], t2 = ev[matchId][1];
-    const valid1 = isValidTeam(t1) && !isSlotDQ(ev, matchId, 0);
-    const valid2 = isValidTeam(t2) && !isSlotDQ(ev, matchId, 1);
-    if (!valid1 && !valid2) return;
+    const t0 = ev[matchId][0], t1 = ev[matchId][1];
+    const valid0 = isValidTeam(t0) && !isSlotDQ(ev, matchId, 0);
+    const valid1 = isValidTeam(t1) && !isSlotDQ(ev, matchId, 1);
+    if (!valid0 && !valid1) return;
 
-    currentMatchContext = { eventId, classId, matchId, matchTitle, t1, t2, valid1, valid2 };
+    currentMatchContext = { eventId, classId, matchId, matchTitle, t0, t1, valid0, valid1 };
     dualRaceSplits = [];
     dualRaceSplitStrings = [];
     clearConfetti();
@@ -449,20 +470,20 @@ function openMatchTimer(eventId, classId, matchId, matchTitle) {
     document.getElementById('modal-event-name').innerText = `${eventId.toUpperCase()} - ${matchTitle}`;
     
     const hasLanes = ['tug', 'dash', 'relay'].includes(eventId);
-    if (valid1 && valid2) {
+    if (valid0 && valid1) {
         if (hasLanes) {
             document.getElementById('modal-matchup-title').innerHTML = `
-                <span style="color:var(--blue);">🔵 ${getTeamNameDisplay(t1)}</span>
+                <span style="color:var(--blue);">🔵 ${getTeamNameDisplay(t0)}</span>
                 <span style="color:#666; font-size:16px;"> VS </span>
-                <span style="color:var(--red);">🔴 ${getTeamNameDisplay(t2)}</span>
+                <span style="color:var(--red);">🔴 ${getTeamNameDisplay(t1)}</span>
             `;
         } else {
-            document.getElementById('modal-matchup-title').innerText = `${getTeamNameDisplay(t1)} VS ${getTeamNameDisplay(t2)}`;
+            document.getElementById('modal-matchup-title').innerText = `${getTeamNameDisplay(t0)} VS ${getTeamNameDisplay(t1)}`;
         }
     } else {
-        const soloTeam = valid1 ? t1 : t2;
-        const laneColor = valid1 ? "var(--blue)" : "var(--red)";
-        const laneIcon = valid1 ? "🔵" : "🔴";
+        const soloTeam = valid0 ? t0 : t1;
+        const laneColor = valid0 ? "var(--blue)" : "var(--red)";
+        const laneIcon = valid0 ? "🔵" : "🔴";
         document.getElementById('modal-matchup-title').innerHTML = `
             <span style="color:${laneColor}; font-weight:bold;">${laneIcon} Solo Run: ${getTeamNameDisplay(soloTeam)}</span>
         `;
@@ -495,14 +516,14 @@ function startActiveMatchClock(eventId) {
     const isDualRace = ['dash', 'relay'].includes(eventId);
 
     if (isDualRace) {
-        const isSolo = !currentMatchContext.valid1 || !currentMatchContext.valid2;
+        const isSolo = !currentMatchContext.valid0 || !currentMatchContext.valid1;
         const startTime = Date.now();
         dualRaceSplits = [];
         dualRaceSplitStrings = [];
         displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
 
         if (isSolo) {
-            const soloSlot = currentMatchContext.valid1 ? 0 : 1;
+            const soloSlot = currentMatchContext.valid0 ? 0 : 1;
             clockControls.innerHTML = `
                 <button id="btn-master-stop" class="btn-single-stop btn-stop-1st" onclick="handleSoloStopPress(${startTime}, ${soloSlot})">
                     ⏹️ STOP TIMER
@@ -523,18 +544,8 @@ function startActiveMatchClock(eventId) {
             displayArea.innerHTML = `<div class="clock-active">${formatMs(Date.now() - startTime, true)}</div>`;
         }, 30);
 
-    } else if (eventId === 'athalon') {
-        const startTime = Date.now();
-        displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
-        clockControls.innerHTML = `
-            <button class="btn-single-stop btn-stop-1st" onclick="stopSingleAthalon(${startTime})">⏹️ STOP TIMER</button>
-            <div style="margin-top: 10px;"><button class="btn-early-stop" onclick="stopSingleAthalon(${startTime})">🏁 End Match Early</button></div>
-        `;
-        modalTimerInterval = setInterval(() => {
-            displayArea.innerHTML = `<div class="clock-active">${formatMs(Date.now() - startTime, true)}</div>`;
-        }, 30);
-
     } else {
+        // Tug-o-War countdown (30s)
         const endTime = Date.now() + 30000;
         displayArea.innerHTML = `<div class="clock-active">30.00s</div>`;
         clockControls.innerHTML = `<button class="btn-single-stop btn-stop-1st" onclick="finishCountdownEarly(${endTime})">⏹️ STOP / WINNER DECIDED</button>`;
@@ -587,7 +598,7 @@ function handleSoloStopPress(startTime, slotIdx) {
     clockControls.style.display = 'none';
 
     const ctx = currentMatchContext;
-    const team = slotIdx === 0 ? ctx.t1 : ctx.t2;
+    const team = slotIdx === 0 ? ctx.t0 : ctx.t1;
 
     displayArea.innerHTML = `
         <div class="flag-box">🏁</div>
@@ -641,8 +652,8 @@ function triggerDualRaceWinnerSelection() {
     clockControls.style.display = 'none';
 
     const ctx = currentMatchContext;
+    const name0 = getTeamNameDisplay(ctx.t0);
     const name1 = getTeamNameDisplay(ctx.t1);
-    const name2 = getTeamNameDisplay(ctx.t2);
 
     playAirhorn();
     launchConfetti();
@@ -662,11 +673,11 @@ function triggerDualRaceWinnerSelection() {
     actionsHeading.innerText = "WHICH LANE CROSSED FIRST?";
     btnContainer.innerHTML = `
         <button class="modal-winner-btn modal-lane-blue" onclick="confirmDualRaceWinner(0)" style="font-size: 17px; padding: 14px;">
-            🔵 BLUE LANE WON: ${name1}<br>
+            🔵 BLUE LANE WON: ${name0}<br>
             <span style="font-size:12px; font-weight:normal; opacity:0.9;">Assigns 1st Place (${dualRaceSplitStrings[0]})</span>
         </button>
         <button class="modal-winner-btn modal-lane-red" onclick="confirmDualRaceWinner(1)" style="font-size: 17px; padding: 14px;">
-            🔴 RED LANE WON: ${name2}<br>
+            🔴 RED LANE WON: ${name1}<br>
             <span style="font-size:12px; font-weight:normal; opacity:0.9;">Assigns 1st Place (${dualRaceSplitStrings[0]})</span>
         </button>
     `;
@@ -689,11 +700,6 @@ function confirmDualRaceWinner(winnerIdx) {
     closeMatchModal();
 }
 
-function stopSingleAthalon(startTime) {
-    if (modalTimerInterval) clearInterval(modalTimerInterval);
-    triggerCheckeredFlagPrompt(formatMs(Date.now() - startTime, true));
-}
-
 function finishCountdownEarly(endTime) {
     if (modalTimerInterval) clearInterval(modalTimerInterval);
     const elapsed = 30000 - Math.max(0, endTime - Date.now());
@@ -709,8 +715,8 @@ function triggerCheckeredFlagPrompt(timeText) {
     clockControls.style.display = 'none';
 
     const ctx = currentMatchContext;
+    const name0 = getTeamNameDisplay(ctx.t0);
     const name1 = getTeamNameDisplay(ctx.t1);
-    const name2 = getTeamNameDisplay(ctx.t2);
 
     playBeep(660, 0.4);
     displayArea.innerHTML = `
@@ -723,13 +729,13 @@ function triggerCheckeredFlagPrompt(timeText) {
 
     if (ctx.eventId === 'tug') {
         btnContainer.innerHTML = `
-            <button class="modal-winner-btn modal-lane-blue" onclick="selectModalWinner(0)">🔵 BLUE LANE: ${name1}</button>
-            <button class="modal-winner-btn modal-lane-red" onclick="selectModalWinner(1)">🔴 RED LANE: ${name2}</button>
+            <button class="modal-winner-btn modal-lane-blue" onclick="selectModalWinner(0)">🔵 BLUE LANE: ${name0}</button>
+            <button class="modal-winner-btn modal-lane-red" onclick="selectModalWinner(1)">🔴 RED LANE: ${name1}</button>
         `;
     } else {
         btnContainer.innerHTML = `
-            <button class="modal-winner-btn" onclick="selectModalWinner(0)">🏆 ${name1}</button>
-            <button class="modal-winner-btn" onclick="selectModalWinner(1)">🏆 ${name2}</button>
+            <button class="modal-winner-btn" onclick="selectModalWinner(0)">🏆 ${name0}</button>
+            <button class="modal-winner-btn" onclick="selectModalWinner(1)">🏆 ${name1}</button>
         `;
     }
     actionsArea.style.display = 'block';
@@ -863,7 +869,7 @@ function autoAdvanceCascade(ev) {
     const r5 = resolveMatch('m5'), r6 = resolveMatch('m6');
     ev.m7[0] = r5.winner; ev.m7[1] = r6.winner; 
     
-    // Preserve semi losers for 3rd place
+    // Semifinal losers to 3rd place
     ev.m8[0] = (r5.loser && r5.loser !== "BYE") ? r5.loser : (r1.loser && r1.loser !== "BYE" ? r1.loser : (r2.loser || "BYE"));
     ev.m8[1] = (r6.loser && r6.loser !== "BYE") ? r6.loser : (r3.loser && r3.loser !== "BYE" ? r3.loser : (r4.loser || "BYE"));
 
@@ -1077,7 +1083,7 @@ function randomizeRelayBracket(eventId, classId) {
     }
     pairs = shuffleArray(pairs);
 
-    // Balanced pairing across Q1-Q4
+    // Balanced Q1-Q4 pairings
     let m = {
         m1: ["BYE", "BYE"],
         m2: ["BYE", "BYE"],
@@ -1167,7 +1173,7 @@ function toggleDQ(event, eventId, classId, matchId, slotIdx) {
     saveData();
 }
 
-// RENDERS BRACKETS AND CONTROLS FOR BOTH CLASSES
+// RENDERS BRACKETS AND CONTROLS
 function renderBracketUI(eventId, classId) {
     const container = document.getElementById(`bracket-${eventId}-${classId}`);
     const controlsContainer = document.getElementById(`controls-${eventId}-${classId}`);
@@ -1201,7 +1207,7 @@ function renderBracketUI(eventId, classId) {
             const gName = award ? award.first : getTeamNameDisplay(medals.gold);
             const sName = award ? award.second : (medals.silver ? getTeamNameDisplay(medals.silver) : "—");
             const bName = award ? award.third : (medals.bronze ? getTeamNameDisplay(medals.bronze) : "—");
-            const titleMap = { 'tug': 'Tug-o-War', 'dash': 'X-Meter Dash', 'relay': 'Robo-Relay', 'athalon': 'Robathalon' };
+            const titleMap = { 'tug': 'Tug-o-War', 'dash': 'X-Meter Dash', 'relay': 'Robo-Relay' };
             overlay.innerHTML = buildPodiumHTML(
                 { name: gName, sub: "5 pts" },
                 { name: sName, sub: sName !== "—" && sName !== "None" ? "3 pts" : "" },
@@ -1252,7 +1258,7 @@ function renderBracketUI(eventId, classId) {
         if (currentVal === "?") classes += " suspense";
         if (isRevealing || currentVal === "BYE" || currentVal === "" || isManual || isDQ || !isAdmin) classes += " locked";
 
-        // Lane Color Background Tints
+        // Lane Background Tints
         if (hasLanes && hasTeam && !isDQ) {
             classes += slotIdx === 0 ? " lane-blue" : " lane-red";
         }
@@ -1289,10 +1295,10 @@ function renderBracketUI(eventId, classId) {
 
         const showFlag = !isRevealing && !isManual && hasTeam && isAdmin;
         const recordedTime = ev.times?.[mId]?.[slotIdx] || "";
-        const showTimeBox = hasTeam && !isManual && !isRevealing && ['dash', 'relay', 'athalon'].includes(eventId);
+        const showTimeBox = hasTeam && !isManual && !isRevealing && ['dash', 'relay'].includes(eventId);
 
         return `
-        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}',${classId}, '${mId}',${slotIdx})"` : ''}>
+        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}', ${classId}, '${mId}', ${slotIdx})"` : ''}>
             <span class="team-name-text">
                 ${isDQ ? '<span class="dq-badge">DQ</span>' : ''}
                 ${medalTag}
@@ -1300,7 +1306,7 @@ function renderBracketUI(eventId, classId) {
                 ${getTeamNameDisplay(currentVal)}
             </span>
             ${showTimeBox ? `
-                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}',${classId}, '${mId}',${slotIdx}, this.value)">
+                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}', ${classId}, '${mId}', ${slotIdx}, this.value)">
             ` : ''}
             ${showFlag ? `
                 <button class="dq-flag-btn ${isDQ ? 'is-dq' : ''}" onclick="toggleDQ(event, '${eventId}', ${classId}, '${mId}', ${slotIdx})" title="${isDQ ? 'Overturn DQ' : 'DQ team'}">🚩</button>
@@ -1313,7 +1319,6 @@ function renderBracketUI(eventId, classId) {
         const valid0 = isValidTeam(t0) && !isSlotDQ(ev, mId, 0);
         const valid1 = isValidTeam(t1) && !isSlotDQ(ev, mId, 1);
         const hasTwoTeams = valid0 && valid1;
-        // Allows starting timer for 2 teams OR a solo time trial against a BYE
         const canTimeMatch = hasTwoTeams || (valid0 && t1 === "BYE") || (valid1 && t0 === "BYE");
         const showMatchTimer = !isRevealing && !isManual && canTimeMatch && isAdmin;
 
@@ -1321,7 +1326,7 @@ function renderBracketUI(eventId, classId) {
         <div class="match">
             <div class="match-title">
                 <span>${title}</span>
-                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}',${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
+                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}', ${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
             </div>
             ${renderTeamSlot(mId, 0)}
             ${renderTeamSlot(mId, 1)}
@@ -1334,6 +1339,329 @@ function renderBracketUI(eventId, classId) {
             <div class="round" style="justify-content: space-around;">${renderMatch('m5', 'Semi 1')} ${renderMatch('m6', 'Semi 2')}</div>
             <div class="round" style="justify-content: center; gap: 20px;">${renderMatch('m7', '1st/2nd FINAL')} ${renderMatch('m8', '3rd Place')}</div>
         `;
+    }
+}
+
+// ==========================================
+// ROBATHALON (EVENT 4 - TIMED TRIAL LOGIC)
+// ==========================================
+function getCleanAthalon(classId) {
+    if (!data.events[classId]) data.events[classId] = {};
+    if (!data.events[classId].athalon || typeof data.events[classId].athalon !== 'object') {
+        data.events[classId].athalon = { runs: {} };
+    }
+    if (!data.events[classId].athalon.runs) {
+        data.events[classId].athalon.runs = {};
+    }
+    return data.events[classId].athalon;
+}
+
+function updateAthalonTeamDropdown(classId) {
+    const roundSel = document.getElementById(`athalon-round-select-${classId}`);
+    const teamSel = document.getElementById(`athalon-team-select-${classId}`);
+    if (!roundSel || !teamSel) return;
+
+    const roundNum = parseInt(roundSel.value) || 1;
+    const ath = getCleanAthalon(classId);
+    const classTeams = data.teams.filter(t => t.classId === classId);
+
+    teamSel.innerHTML = "";
+
+    if (roundNum === 1) {
+        classTeams.forEach(t => {
+            const rData = ath.runs[t.id];
+            const hasRun = rData && (rData.r1 || rData.r1Ms !== null);
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.innerText = `${t.name} ${hasRun ? `(✓ ${rData.r1})` : '(Pending)'}`;
+            teamSel.appendChild(opt);
+        });
+    } else {
+        // Round 2 (Top 3 Finalists only)
+        const rankedR1 = getAthalonRankedTeams(classId, 1);
+        const top3 = rankedR1.slice(0, 3);
+        if (top3.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = "";
+            opt.innerText = "-- Complete Round 1 First --";
+            teamSel.appendChild(opt);
+        } else {
+            top3.forEach(t => {
+                const rData = ath.runs[t.id];
+                const hasRun = rData && (rData.r2 || rData.r2Ms !== null);
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.innerText = `${t.name} ${hasRun ? `(✓ ${rData.r2})` : '(Pending Final)'}`;
+                teamSel.appendChild(opt);
+            });
+        }
+    }
+}
+
+function launchAthalonRun(classId) {
+    if (!isAdmin) return;
+    const roundSel = document.getElementById(`athalon-round-select-${classId}`);
+    const teamSel = document.getElementById(`athalon-team-select-${classId}`);
+    if (!teamSel || !teamSel.value) {
+        alert("Please select a team to run.");
+        return;
+    }
+
+    const teamId = parseInt(teamSel.value);
+    const roundNum = parseInt(roundSel.value) || 1;
+    openAthalonModalTimer(classId, teamId, roundNum);
+}
+
+function openAthalonModalTimer(classId, teamId, roundNum) {
+    const team = data.teams.find(t => t.id === teamId);
+    if (!team) return;
+
+    currentMatchContext = { eventId: 'athalon', classId, teamId, roundNum, teamName: team.name };
+    clearConfetti();
+
+    const modal = document.getElementById('match-modal');
+    document.getElementById('modal-event-name').innerText = `ROBATHALON - ROUND ${roundNum}`;
+    document.getElementById('modal-matchup-title').innerHTML = `🏃 Running: <span style="color:var(--blue); font-weight:bold;">${team.name}</span>`;
+    document.getElementById('modal-actions-area').style.display = 'none';
+    document.getElementById('modal-clock-controls').style.display = 'none';
+    modal.style.display = 'flex';
+
+    let step = 3;
+    const displayArea = document.getElementById('modal-display-area');
+    displayArea.innerHTML = `<div class="countdown-num cd-3">3</div>`;
+    playBeep(440, 0.2);
+
+    const cdInterval = setInterval(() => {
+        step--;
+        if (step === 2) { displayArea.innerHTML = `<div class="countdown-num cd-2">2</div>`; playBeep(440, 0.2); }
+        else if (step === 1) { displayArea.innerHTML = `<div class="countdown-num cd-1">1</div>`; playBeep(440, 0.2); }
+        else if (step === 0) { displayArea.innerHTML = `<div class="countdown-num cd-go">GO!</div>`; playBeep(880, 0.4); }
+        else {
+            clearInterval(cdInterval);
+            startActiveAthalonClock();
+        }
+    }, 1000);
+}
+
+function startActiveAthalonClock() {
+    const displayArea = document.getElementById('modal-display-area');
+    const clockControls = document.getElementById('modal-clock-controls');
+    clockControls.style.display = 'block';
+
+    const startTime = Date.now();
+    displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
+    clockControls.innerHTML = `
+        <button class="btn-single-stop btn-stop-1st" onclick="stopAthalonRun(${startTime})">
+            ⏹️ STOP TIMER
+        </button>
+    `;
+
+    if (modalTimerInterval) clearInterval(modalTimerInterval);
+    modalTimerInterval = setInterval(() => {
+        displayArea.innerHTML = `<div class="clock-active">${formatMs(Date.now() - startTime, true)}</div>`;
+    }, 30);
+}
+
+function stopAthalonRun(startTime) {
+    if (modalTimerInterval) clearInterval(modalTimerInterval);
+    const elapsed = Date.now() - startTime;
+    const timeStr = formatMs(elapsed, false);
+    playAirhorn();
+    launchConfetti();
+
+    const displayArea = document.getElementById('modal-display-area');
+    const actionsArea = document.getElementById('modal-actions-area');
+    const clockControls = document.getElementById('modal-clock-controls');
+    const btnContainer = document.getElementById('modal-winner-buttons');
+    const actionsHeading = document.getElementById('modal-actions-heading');
+    clockControls.style.display = 'none';
+
+    displayArea.innerHTML = `
+        <div class="flag-box">🏁</div>
+        <div style="font-size:22px; font-weight:bold; color:var(--green); margin-bottom:5px;">RUN FINISHED!</div>
+        <div style="font-size:20px; font-weight:bold; color:#333; margin-top:5px;">Official Time: <strong style="color:var(--blue); font-family:monospace;">${timeStr}</strong></div>
+    `;
+
+    actionsHeading.innerText = "CONFIRM & SAVE TIME:";
+    btnContainer.innerHTML = `
+        <button class="modal-winner-btn" onclick="saveAthalonRunTime(${elapsed}, '${timeStr}')">
+            ✓ Confirm Time for ${currentMatchContext.teamName} (${timeStr})
+        </button>
+    `;
+    actionsArea.style.display = 'block';
+}
+
+function saveAthalonRunTime(elapsedMs, timeStr) {
+    if (!currentMatchContext) return;
+    const { classId, teamId, roundNum } = currentMatchContext;
+    const ath = getCleanAthalon(classId);
+
+    if (!ath.runs[teamId]) ath.runs[teamId] = { r1Ms: null, r1: "", r2Ms: null, r2: "", dq: false };
+
+    if (roundNum === 1) {
+        ath.runs[teamId].r1Ms = elapsedMs;
+        ath.runs[teamId].r1 = timeStr;
+    } else {
+        ath.runs[teamId].r2Ms = elapsedMs;
+        ath.runs[teamId].r2 = timeStr;
+    }
+
+    closeMatchModal();
+    renderAthalon();
+    saveData();
+}
+
+function updateAthalonManualTime(classId, teamId, roundNum, val) {
+    if (!isAdmin) return;
+    const ath = getCleanAthalon(classId);
+    if (!ath.runs[teamId]) ath.runs[teamId] = { r1Ms: null, r1: "", r2Ms: null, r2: "", dq: false };
+
+    const parsedMs = parseTimeToMs(val);
+    if (roundNum === 1) {
+        ath.runs[teamId].r1 = val.trim();
+        ath.runs[teamId].r1Ms = parsedMs;
+    } else {
+        ath.runs[teamId].r2 = val.trim();
+        ath.runs[teamId].r2Ms = parsedMs;
+    }
+    renderAthalon();
+    saveData();
+}
+
+function getAthalonRankedTeams(classId, roundNum = 1) {
+    const ath = getCleanAthalon(classId);
+    const classTeams = data.teams.filter(t => t.classId === classId);
+
+    if (roundNum === 1) {
+        return classTeams.slice().sort((a, b) => {
+            const ra = ath.runs[a.id];
+            const rb = ath.runs[b.id];
+            const msA = ra && ra.r1Ms !== null && !ra.dq ? ra.r1Ms : Infinity;
+            const msB = rb && rb.r1Ms !== null && !rb.dq ? rb.r1Ms : Infinity;
+            return msA - msB;
+        });
+    } else {
+        const top3R1 = getAthalonRankedTeams(classId, 1).slice(0, 3);
+        return top3R1.slice().sort((a, b) => {
+            const ra = ath.runs[a.id];
+            const rb = ath.runs[b.id];
+            const msA = ra && ra.r2Ms !== null && !ra.dq ? ra.r2Ms : (ra && ra.r1Ms ? ra.r1Ms : Infinity);
+            const msB = rb && rb.r2Ms !== null && !rb.dq ? rb.r2Ms : (rb && rb.r1Ms ? rb.r1Ms : Infinity);
+            return msA - msB;
+        });
+    }
+}
+
+function renderAthalon() {
+    [1, 2].forEach(cId => {
+        const tbody = document.getElementById(`athalonBody${cId}`);
+        const overlay = document.getElementById(`podium-overlay-athalon-${cId}`);
+        if (!tbody) return;
+
+        const ath = getCleanAthalon(cId);
+        const rankedR1 = getAthalonRankedTeams(cId, 1);
+        const top3Ids = rankedR1.slice(0, 3).map(t => t.id);
+        const rankedR2 = getAthalonRankedTeams(cId, 2);
+
+        tbody.innerHTML = rankedR1.map((t, index) => {
+            const rData = ath.runs[t.id] || { r1: "", r2: "", r1Ms: null, r2Ms: null, dq: false };
+            const isTop3 = top3Ids.includes(t.id) && rData.r1Ms !== null;
+
+            let medalBadge = "";
+            let medalRowClass = "";
+            if (isTop3) {
+                const finalIdx = rankedR2.findIndex(x => x.id === t.id);
+                if (finalIdx === 0 && rData.r2Ms !== null) { medalBadge = '🥇 1st'; medalRowClass = 'medal-gold'; }
+                else if (finalIdx === 1 && rData.r2Ms !== null) { medalBadge = '🥈 2nd'; medalRowClass = 'medal-silver'; }
+                else if (finalIdx === 2 && rData.r2Ms !== null) { medalBadge = '🥉 3rd'; medalRowClass = 'medal-bronze'; }
+                else { medalBadge = '<span class="qualifier-badge">⭐ Qualifier</span>'; }
+            }
+
+            return `
+            <tr class="${medalRowClass}">
+                <td><strong>${index + 1}</strong></td>
+                <td style="text-align:left; font-weight:600; padding-left:10px;">${t.name}</td>
+                <td>
+                    <input type="text" class="match-time-input" value="${rData.r1 || ''}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onchange="updateAthalonManualTime(${cId}, ${t.id}, 1, this.value)">
+                </td>
+                <td>
+                    ${isTop3 ? `
+                        <input type="text" class="match-time-input" value="${rData.r2 \vert{}\vert{} ''}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onchange="updateAthalonManualTime(${cId},${t.id}, 2, this.value)">
+                    ` : `<span style="color:#aaa; font-size:11px;">—</span>`}
+                </td>
+                <td><strong>${medalBadge || '—'}</strong></td>
+            </tr>`;
+        }).join('');
+
+        updateAthalonTeamDropdown(cId);
+
+        // Podium Overlay for Robathalon
+        if (overlay) {
+            const award = data.awards[cId]?.['athalon'];
+            const r2Finals = rankedR2.filter(t => ath.runs[t.id] && ath.runs[t.id].r2Ms !== null);
+
+            if ((r2Finals.length >= 3 && !award) || (award && award.first !== "None")) {
+                const gName = award ? award.first : rankedR2[0]?.name;
+                const sName = award ? award.second : rankedR2[1]?.name;
+                const bName = award ? award.third : rankedR2[2]?.name;
+
+                overlay.innerHTML = buildPodiumHTML(
+                    { name: gName, sub: "5 pts" },
+                    { name: sName || "—", sub: sName ? "3 pts" : "" },
+                    { name: bName || "—", sub: bName ? "1 pt" : "" },
+                    "Robathalon Champions",
+                    true
+                );
+                overlay.style.display = "flex";
+            } else {
+                overlay.style.display = "none";
+            }
+        }
+        updateStatusDisplay('athalon', cId);
+    });
+}
+
+function awardAthalonPoints(classId) {
+    if (!isAdmin) return;
+    const rankedR2 = getAthalonRankedTeams(classId, 2);
+    const ath = getCleanAthalon(classId);
+
+    const validTop = rankedR2.filter(t => ath.runs[t.id] && (ath.runs[t.id].r2Ms !== null || ath.runs[t.id].r1Ms !== null));
+    if (validTop.length === 0) {
+        alert("Please complete at least one race run before awarding points.");
+        return;
+    }
+
+    if (data.awards[classId]?.['athalon']) undoEventPoints('athalon', classId);
+
+    let historyList = [];
+    let first = validTop[0] || null;
+    let second = validTop[1] || null;
+    let third = validTop[2] || null;
+
+    if (first) { first.points += 5; historyList.push({ id: first.id, pts: 5 }); }
+    if (second) { second.points += 3; historyList.push({ id: second.id, pts: 3 }); }
+    if (third) { third.points += 1; historyList.push({ id: third.id, pts: 1 }); }
+
+    data.awards[classId]['athalon'] = {
+        history: historyList,
+        first: first ? first.name : "None",
+        second: second ? second.name : "None",
+        third: third ? third.name : "None",
+        firstId: first ? first.id : null,
+        secondId: second ? second.id : null,
+        thirdId: third ? third.id : null
+    };
+
+    saveData();
+}
+
+function revokeAthalonPoints(classId) {
+    if (!isAdmin) return;
+    if (!data.awards[classId]?.['athalon']) return;
+    if (confirm("Reset Robathalon points for this class?")) {
+        undoEventPoints('athalon', classId);
+        saveData();
     }
 }
 
@@ -1484,7 +1812,7 @@ function awardGolfPoints(classId) {
 
 function revokeGolfPoints(classId) {
     if (!isAdmin) return;
-    if (!data.awards[classId]?.[eventId]) return;
+    if (!data.awards[classId]?.['golf']) return;
     if (confirm("Reset golf points for this class?")) {
         undoEventPoints('golf', classId);
         saveData();
