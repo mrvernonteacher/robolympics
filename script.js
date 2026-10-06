@@ -1,4 +1,7 @@
-// GOOGLE APPS SCRIPT BACKEND ENDPOINT
+// ==========================================================================
+// FORCE GITHUB SCRIPT UPDATE: OCT 6 V1
+// ==========================================================================
+
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylTS6d_ZhPsDYmUqkVglkBPrS2dJVBNwDSehM2oCIqAb-FVXLC5AHRcTqPfJZF7G9m/exec";
 
 const TEACHER_PIN = "111114";
@@ -157,20 +160,23 @@ function setCloudStatus(msg) {
 window.onload = function() {
     try {
         buildBracketEventsHTML();
-        // ----------------------------------------------------
-        // THIS RENDER HAPPENS INSTANTLY BEFORE THE CLOUD FETCH
-        // SO THE APP NEVER FREEZES
-        // ----------------------------------------------------
+        
+        // This fires the UI rendering instantly so the screen doesn't freeze waiting for Google
         renderFullUI();
 
         setCloudStatus("⏳ Connecting to Sheet...");
         fetch(`${APPS_SCRIPT_URL}?action=getYears`)
             .then(res => res.json())
             .then(res => populateYearsAndLoad(res.years))
-            .catch(() => setCloudStatus("💾 Synced Locally (Offline)"));
+            .catch((err) => {
+                console.error("Fetch failed:", err);
+                setCloudStatus("💾 Synced Locally (Offline)");
+            });
     } catch (e) {
         console.error("Startup error:", e);
         setCloudStatus("⚠️ UI Render Error: " + e.message);
+        const errBox = document.getElementById('debug-error-box');
+        if(errBox) { errBox.style.display = 'block'; errBox.innerHTML += `<br>🔴 Startup Crash: ${e.message}`; }
     }
 };
 
@@ -206,6 +212,8 @@ function renderFullUI() {
         updateStatusDisplay('golf', 2);
     } catch (e) {
         console.error("Render error:", e);
+        const errBox = document.getElementById('debug-error-box');
+        if(errBox) { errBox.style.display = 'block'; errBox.innerHTML += `<br>🔴 Render Crash: ${e.message}`; }
     }
 }
 
@@ -1099,6 +1107,7 @@ function randomizeRelayBracket(eventId, classId) {
     }
     pairs = shuffleArray(pairs);
 
+    // Balanced pairing across Q1-Q4
     let m = {
         m1: ["BYE", "BYE"],
         m2: ["BYE", "BYE"],
@@ -1188,183 +1197,18 @@ function toggleDQ(event, eventId, classId, matchId, slotIdx) {
     saveData();
 }
 
-function renderBracketUI(eventId, classId) {
-    const container = document.getElementById(`bracket-${eventId}-${classId}`);
-    const controlsContainer = document.getElementById(`controls-${eventId}-${classId}`);
-    const overlay = document.getElementById(`podium-overlay-${eventId}-${classId}`);
-    const ev = getCleanOrExistingEvent(eventId, classId);
-    const isRelay = eventId === 'relay';
-    const isManual = !!manualModes[`${eventId}-${classId}`];
-    const isRevealing = ev.isRevealing === true;
-    const hasLanes = ['tug', 'dash', 'relay'].includes(eventId);
-
-    if (controlsContainer) {
-        if (isManual) {
-            controlsContainer.innerHTML = `
-                <button onclick="lockInManualBracket('${eventId}', ${classId}, ${isRelay})" style="background-color: var(--green);">✓ Lock In Seeds</button>
-                <button onclick="toggleManualAssign('${eventId}', ${classId})" class="btn-remove">Cancel</button>
-            `;
-        } else {
-            controlsContainer.innerHTML = `
-                <button class="admin-only" onclick="${isRelay ? 'randomizeRelayBracket' : 'randomizeBracket'}('${eventId}', ${classId})">Randomize Bracket</button>
-                <button class="admin-only" onclick="toggleManualAssign('${eventId}', ${classId})" style="background-color: #5c6bc0;">Manual Assign</button>
-                <button class="admin-only btn-remove" onclick="clearBracket('${eventId}', ${classId})">Clear</button>
-            `;
-        }
-    }
-
-    const medals = getBracketMedals(ev);
-    const award = data.awards ? data.awards[classId]?.[eventId] : null;
-
-    if (overlay) {
-        if (!isManual && !isRevealing && ((medals && medals.gold) || (award && award.first !== "None"))) {
-            const gName = award ? award.first : getTeamNameDisplay(medals.gold);
-            const sName = award ? award.second : (medals.silver ? getTeamNameDisplay(medals.silver) : "—");
-            const bName = award ? award.third : (medals.bronze ? getTeamNameDisplay(medals.bronze) : "—");
-            const titleMap = { 'tug': 'Tug-o-War', 'dash': 'X-Meter Dash', 'relay': 'Robo-Relay' };
-            overlay.innerHTML = buildPodiumHTML(
-                { name: gName, sub: "5 pts" },
-                { name: sName, sub: sName !== "—" && sName !== "None" ? "3 pts" : "" },
-                { name: bName, sub: bName !== "—" && bName !== "None" ? "1 pt" : "" },
-                `${titleMap[eventId] || eventId.toUpperCase()} Champions`,
-                true
-            );
-            overlay.style.display = "flex";
-        } else {
-            overlay.style.display = "none";
-        }
-    }
-
-    const buildSelectOptions = (selectedVal) => {
-        const classTeams = data.teams.filter(t => t.classId === classId);
-        let optHTML = `<option value="">-- Empty --</option><option value="BYE" ${selectedVal === 'BYE' ? 'selected' : ''}>BYE</option>`;
-        classTeams.forEach(t => optHTML += `<option value="${t.id}" ${selectedVal === t.id ? 'selected' : ''}>${t.name}</option>`);
-        return optHTML;
-    };
-
-    const renderTeamSlot = (mId, slotIdx) => {
-        const currentVal = ev[mId][slotIdx];
-        const isDQ = isSlotDQ(ev, mId, slotIdx);
-        const hasTeam = isValidTeam(currentVal);
-
-        if (isManual && ['m1', 'm2', 'm3', 'm4'].includes(mId)) {
-            if (!isRelay) {
-                return `<div class="team locked"><select id="sel-${eventId}-${classId}-${mId}-${slotIdx}">${buildSelectOptions(currentVal)}</select></div>`;
-            } else {
-                const valA = Array.isArray(currentVal) ? currentVal[0] : (currentVal === 'BYE' ? 'BYE' : '');
-                const valB = Array.isArray(currentVal) ? currentVal[1] : (currentVal === 'BYE' ? 'BYE' : '');
-                return `
-                <div class="team locked">
-                    <div class="relay-pair">
-                        <select id="sel-${eventId}-${classId}-${mId}-${slotIdx}-a">${buildSelectOptions(valA)}</select>
-                        <span>&</span>
-                        <select id="sel-${eventId}-${classId}-${mId}-${slotIdx}-b">${buildSelectOptions(valB)}</select>
-                    </div>
-                </div>`;
-            }
-        }
-
-        const isMatchDecided = ev.winners && ev.winners[mId] !== undefined && ev.winners[mId] !== "";
-        const didWinThisMatch = isMatchDecided && isSameTeam(ev.winners[mId], currentVal);
-        const didLoseThisMatch = isMatchDecided && !didWinThisMatch && hasTeam;
-
-        let classes = "team";
-        if (currentVal === "?") classes += " suspense";
-        if (isRevealing || currentVal === "BYE" || currentVal === "" || isManual || isDQ || !isAdmin) classes += " locked";
-
-        if (hasLanes && hasTeam && !isDQ) {
-            classes += slotIdx === 0 ? " lane-blue" : " lane-red";
-        }
-
-        let medalTag = "";
-        let winnerCheck = "";
-
-        if (isDQ) {
-            classes += " dq-active";
-        } else if (medals && hasTeam) {
-            const isGold = isSameTeam(currentVal, medals.gold);
-            const isSilver = isSameTeam(currentVal, medals.silver);
-            const isBronze = isSameTeam(currentVal, medals.bronze);
-
-            if (mId === 'm7') {
-                if (isGold) { classes += " medal-gold"; medalTag = '<span class="medal-badge-tag">🥇 1st</span>'; }
-                else if (isSilver) { classes += " medal-silver"; medalTag = '<span class="medal-badge-tag">🥈 2nd</span>'; }
-            } else if (mId === 'm8') {
-                if (isBronze) { classes += " medal-bronze"; medalTag = '<span class="medal-badge-tag">🥉 3rd</span>'; }
-                else if (didLoseThisMatch) classes += " lost-team";
-            } else {
-                if (didWinThisMatch) {
-                    classes += " winner";
-                    winnerCheck = '<span class="winner-check">✓</span>';
-                } else if (didLoseThisMatch) classes += " lost-team";
-            }
-        } else {
-            if (didWinThisMatch) {
-                classes += " winner";
-                winnerCheck = '<span class="winner-check">✓</span>';
-            }
-            if (didLoseThisMatch) classes += " lost-team";
-        }
-
-        const showFlag = !isRevealing && !isManual && hasTeam && isAdmin;
-        const recordedTime = ev.times?.[mId]?.[slotIdx] || "";
-        const showTimeBox = hasTeam && !isManual && !isRevealing && ['dash', 'relay'].includes(eventId);
-
-        return `
-        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}', ${classId}, '${mId}', ${slotIdx})"` : ''}>
-            <span class="team-name-text">
-                ${isDQ ? '<span class="dq-badge">DQ</span>' : ''}
-                ${medalTag}
-                ${winnerCheck}
-                ${getTeamNameDisplay(currentVal)}
-            </span>
-            ${showTimeBox ? `
-                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}', ${classId}, '${mId}', ${slotIdx}, this.value)">
-            ` : ''}
-            ${showFlag ? `
-                <button class="dq-flag-btn ${isDQ ? 'is-dq' : ''}" onclick="toggleDQ(event, '${eventId}', ${classId}, '${mId}', ${slotIdx})" title="${isDQ ? 'Overturn DQ' : 'DQ team'}">🚩</button>
-            ` : ''}
-        </div>`;
-    };
-
-    const renderMatch = (mId, title) => {
-        const t0 = ev[mId][0], t1 = ev[mId][1];
-        const valid0 = isValidTeam(t0) && !isSlotDQ(ev, mId, 0);
-        const valid1 = isValidTeam(t1) && !isSlotDQ(ev, mId, 1);
-        const hasTwoTeams = valid0 && valid1;
-        const canTimeMatch = hasTwoTeams || (valid0 && t1 === "BYE") || (valid1 && t0 === "BYE");
-        const showMatchTimer = !isRevealing && !isManual && canTimeMatch && isAdmin;
-
-        return `
-        <div class="match">
-            <div class="match-title">
-                <span>${title}</span>
-                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}',${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
-            </div>
-            ${renderTeamSlot(mId, 0)}
-            ${renderTeamSlot(mId, 1)}
-        </div>`;
-    };
-
-    if (container) {
-        container.innerHTML = `
-            <div class="round">${renderMatch('m1', 'Q1')} ${renderMatch('m2', 'Q2')} ${renderMatch('m3', 'Q3')} ${renderMatch('m4', 'Q4')}</div>
-            <div class="round" style="justify-content: space-around;">${renderMatch('m5', 'Semi 1')} ${renderMatch('m6', 'Semi 2')}</div>
-            <div class="round" style="justify-content: center; gap: 20px;">${renderMatch('m7', '1st/2nd FINAL')} ${renderMatch('m8', '3rd Place')}</div>
-        `;
-    }
-}
-
 // ==========================================
 // ROBATHALON (EVENT 4 - TIMED TRIAL LOGIC)
 // ==========================================
 function getCleanAthalon(classId) {
     if (!data.events[classId]) data.events[classId] = {};
-    if (!data.events[classId].athalon || typeof data.events[classId].athalon !== 'object') {
+    
+    // Total wipe for arrays or legacy bracket objects
+    if (!data.events[classId].athalon || Array.isArray(data.events[classId].athalon) || typeof data.events[classId].athalon !== 'object') {
         data.events[classId].athalon = { runs: {} };
     }
     if (!data.events[classId].athalon.runs) {
-        data.events[classId].athalon.runs = {};
+        data.events[classId].athalon = { runs: {} }; 
     }
     return data.events[classId].athalon;
 }
@@ -1464,7 +1308,7 @@ function startActiveAthalonClock() {
     displayArea.innerHTML = `<div class="clock-active">00:00.00</div>`;
     clockControls.innerHTML = `
         <button class="btn-single-stop btn-stop-1st" onclick="stopAthalonRun(${startTime})">
-            ⏹️ STOP TIMER
+            ⏹ STOP TIMER
         </button>
     `;
 
