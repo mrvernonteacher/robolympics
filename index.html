@@ -1,12 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- UPDATE FORCE TAG: OCT 6 V1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robo-Lympics Standings</title>
-    <link rel="stylesheet" href="style.css?v=400">
+    <link rel="stylesheet" href="style.css?v=1006">
+    <script>
+        // Automatic Error Reporter (Catches fatal crashes and prints them to screen)
+        window.onerror = function(msg, url, line) {
+            const errBox = document.getElementById('debug-error-box');
+            if(errBox) {
+                errBox.style.display = 'block';
+                errBox.innerHTML += `<br>🔴 <strong>CRASH:</strong> ${msg} (Line ${line})`;
+            }
+        };
+    </script>
 </head>
 <body>
+
+<div id="debug-error-box" style="display:none; background:#e74c3c; color:white; padding:15px; border-radius:8px; margin-bottom:20px; font-family:monospace; font-weight:bold;"></div>
 
 <div class="top-bar">
     <div class="year-controls">
@@ -260,6 +273,6 @@
     </div>
 </div>
 
-<script src="script.js?v=400"></script>
+<script src="script.js?v=1006"></script>
 </body>
 </html>
