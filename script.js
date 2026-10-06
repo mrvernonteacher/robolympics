@@ -177,6 +177,12 @@ window.onload = function() {
 
 function renderFullUI() {
     try {
+        if (!data) data = createBlankTemplate();
+        if (!data.teams) data.teams = [];
+        if (!data.events) data.events = { 1: {}, 2: {} };
+        if (!data.awards) data.awards = { 1: {}, 2: {} };
+        if (!data.golfScores) data.golfScores = {};
+
         const c1 = document.getElementById('class1Name');
         const c2 = document.getElementById('class2Name');
         if (c1) c1.value = data.class1Name || "Guiendon";
@@ -208,6 +214,9 @@ function populateYearsAndLoad(yearList) {
     const sel = document.getElementById('yearSelector');
     if (!sel) return;
     sel.innerHTML = "";
+    if (!yearList || !Array.isArray(yearList) || yearList.length === 0) {
+        yearList = ["2026"];
+    }
     yearList.forEach(y => {
         const opt = document.createElement('option');
         opt.value = y;
@@ -908,7 +917,7 @@ function getBracketMedals(ev) {
 
 function getTeamMedals(teamId, classId) {
     let gold = 0, silver = 0, bronze = 0;
-    const classAwards = data.awards[classId] || {};
+    const classAwards = data.awards ? (data.awards[classId] || {}) : {};
     const teamObj = data.teams.find(t => t.id === teamId);
     const teamName = teamObj ? teamObj.name : "";
 
@@ -967,8 +976,10 @@ function renderSetup() {
             <input type="text" value="${t.name}" ${isAdmin ? `onchange="editTeam(${t.id}, this.value)"` : 'readonly'}>
             ${isAdmin ? `<button onclick="removeTeam(${t.id})" class="btn-remove">X</button>` : ''}
         </div>`).join('');
-    document.getElementById('class1List').innerHTML = createHTML(1);
-    document.getElementById('class2List').innerHTML = createHTML(2);
+    const c1El = document.getElementById('class1List');
+    const c2El = document.getElementById('class2List');
+    if (c1El) c1El.innerHTML = createHTML(1);
+    if (c2El) c2El.innerHTML = createHTML(2);
 }
 
 function renderLeaderboards() {
@@ -996,18 +1007,21 @@ function renderLeaderboards() {
             );
         }
 
-        document.getElementById(tbodyId).innerHTML = classTeams.map((t, i) => {
-            const medals = getTeamMedals(t.id, cId);
-            return `
-            <tr>
-                <td><strong>${i+1}</strong></td>
-                <td style="text-align:left; font-weight:600; padding-left:12px;">${t.name}</td>
-                <td class="medal-cell" style="color:#d4af37;">${medals.gold > 0 ? medals.gold : '-'}</td>
-                <td class="medal-cell" style="color:#7f8c8d;">${medals.silver > 0 ? medals.silver : '-'}</td>
-                <td class="medal-cell" style="color:#b87333;">${medals.bronze > 0 ? medals.bronze : '-'}</td>
-                <td><strong style="color:var(--blue); font-size:15px;">${t.points}</strong></td>
-            </tr>`;
-        }).join('');
+        const tbody = document.getElementById(tbodyId);
+        if (tbody) {
+            tbody.innerHTML = classTeams.map((t, i) => {
+                const medals = getTeamMedals(t.id, cId);
+                return `
+                <tr>
+                    <td><strong>${i+1}</strong></td>
+                    <td style="text-align:left; font-weight:600; padding-left:12px;">${t.name}</td>
+                    <td class="medal-cell" style="color:#d4af37;">${medals.gold > 0 ? medals.gold : '-'}</td>
+                    <td class="medal-cell" style="color:#7f8c8d;">${medals.silver > 0 ? medals.silver : '-'}</td>
+                    <td class="medal-cell" style="color:#b87333;">${medals.bronze > 0 ? medals.bronze : '-'}</td>
+                    <td><strong style="color:var(--blue); font-size:15px;">${t.points}</strong></td>
+                </tr>`;
+            }).join('');
+        }
     };
 
     buildBoard(1, 'leaderboardBody1', 'standings-podium-1');
@@ -1298,7 +1312,7 @@ function renderBracketUI(eventId, classId) {
         const showTimeBox = hasTeam && !isManual && !isRevealing && ['dash', 'relay'].includes(eventId);
 
         return `
-        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}', ${classId}, '${mId}', ${slotIdx})"` : ''}>
+        <div class="${classes}" ${(!isRevealing && !isManual && !isDQ && isAdmin) ? `onclick="advanceTeam('${eventId}',${classId}, '${mId}',${slotIdx})"` : ''}>
             <span class="team-name-text">
                 ${isDQ ? '<span class="dq-badge">DQ</span>' : ''}
                 ${medalTag}
@@ -1306,7 +1320,7 @@ function renderBracketUI(eventId, classId) {
                 ${getTeamNameDisplay(currentVal)}
             </span>
             ${showTimeBox ? `
-                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}', ${classId}, '${mId}', ${slotIdx}, this.value)">
+                <input type="text" class="match-time-input" value="${recordedTime}" placeholder="--:--" ${isAdmin ? '' : 'readonly'} onclick="event.stopPropagation()" onchange="updateMatchTime('${eventId}',${classId}, '${mId}',${slotIdx}, this.value)">
             ` : ''}
             ${showFlag ? `
                 <button class="dq-flag-btn ${isDQ ? 'is-dq' : ''}" onclick="toggleDQ(event, '${eventId}', ${classId}, '${mId}', ${slotIdx})" title="${isDQ ? 'Overturn DQ' : 'DQ team'}">🚩</button>
@@ -1326,7 +1340,7 @@ function renderBracketUI(eventId, classId) {
         <div class="match">
             <div class="match-title">
                 <span>${title}</span>
-                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}', ${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
+                ${showMatchTimer ? `<button class="match-timer-btn" onclick="openMatchTimer('${eventId}',${classId}, '${mId}', '${title}')">⏱️ Start</button>` : ''}
             </div>
             ${renderTeamSlot(mId, 0)}
             ${renderTeamSlot(mId, 1)}
@@ -1595,7 +1609,6 @@ function renderAthalon() {
 
         updateAthalonTeamDropdown(cId);
 
-        // Podium Overlay for Robathalon
         if (overlay) {
             const award = data.awards[cId]?.['athalon'];
             const r2Finals = rankedR2.filter(t => ath.runs[t.id] && ath.runs[t.id].r2Ms !== null);
@@ -1746,7 +1759,9 @@ function revokePoints(eventId, classId) {
 
 function renderGolf() {
     const buildGolfTable = (cId, tbodyId, overlayId) => {
-        document.getElementById(tbodyId).innerHTML = data.teams.filter(t => t.classId === cId).map(t => `
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        tbody.innerHTML = data.teams.filter(t => t.classId === cId).map(t => `
             <tr>
                 <td>${t.name}</td>
                 <td><input type="number" value="${data.golfScores[t.id] ?? ''}" ${isAdmin ? `onchange="updateGolfScore(${t.id}, this.value)"` : 'readonly'} style="width: 80px;"></td>
@@ -1821,10 +1836,11 @@ function revokeGolfPoints(classId) {
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active-tab'));
-    document.getElementById(tabId).classList.add('active-tab');
+    const target = document.getElementById(tabId);
+    if (target) target.classList.add('active-tab');
 }
 
 function updateClassTitles() {
-    document.querySelectorAll('.title-c1').forEach(el => el.innerText = data.class1Name);
-    document.querySelectorAll('.title-c2').forEach(el => el.innerText = data.class2Name);
+    document.querySelectorAll('.title-c1').forEach(el => el.innerText = data.class1Name || "Guiendon");
+    document.querySelectorAll('.title-c2').forEach(el => el.innerText = data.class2Name || "Vernon");
 }
