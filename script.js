@@ -1,4 +1,7 @@
-// GOOGLE APPS SCRIPT BACKEND ENDPOINT
+// ==========================================================================
+// FORCE GITHUB SCRIPT UPDATE: OCT 6 V2 (Auto-Advancing Dropdowns & True Reset)
+// ==========================================================================
+
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylTS6d_ZhPsDYmUqkVglkBPrS2dJVBNwDSehM2oCIqAb-FVXLC5AHRcTqPfJZF7G9m/exec";
 
 const TEACHER_PIN = "111114";
@@ -85,7 +88,7 @@ function buildBracketEventsHTML() {
                     <div id="status-${ev.id}-1" class="award-status">Points Not Awarded</div>
                     <div class="points-action-bar admin-only">
                         <button onclick="awardPoints('${ev.id}', 1)" class="points-btn">Award Points (5-3-1)</button>
-                        <button onclick="revokePoints('${ev.id}', 1)" class="btn-warning">Rescore / Reset Points</button>
+                        <button onclick="revokePoints('${ev.id}', 1)" class="btn-warning">Rescore / Clear Results</button>
                     </div>
                 </div>
 
@@ -112,7 +115,7 @@ function buildBracketEventsHTML() {
                     <div id="status-${ev.id}-2" class="award-status">Points Not Awarded</div>
                     <div class="points-action-bar admin-only">
                         <button onclick="awardPoints('${ev.id}', 2)" class="points-btn">Award Points (5-3-1)</button>
-                        <button onclick="revokePoints('${ev.id}', 2)" class="btn-warning">Rescore / Reset Points</button>
+                        <button onclick="revokePoints('${ev.id}', 2)" class="btn-warning">Rescore / Clear Results</button>
                     </div>
                 </div>
             </div>
@@ -136,8 +139,8 @@ function createBlankTemplate() {
         class2Name: "Vernon",
         teams: [],
         events: {
-            1: { tug: {}, dash: {}, relay: {}, athalon: { runs: {} } },
-            2: { tug: {}, dash: {}, relay: {}, athalon: { runs: {} } }
+            1: { tug: {}, dash: {}, relay: {}, athalon: { runs: {}, order: [] } },
+            2: { tug: {}, dash: {}, relay: {}, athalon: { runs: {}, order: [] } }
         },
         awards: {
             1: { tug: null, dash: null, relay: null, athalon: null, golf: null },
@@ -159,8 +162,6 @@ function setCloudStatus(msg) {
 window.onload = function() {
     try {
         buildBracketEventsHTML();
-        
-        // Fire UI render instantly before waiting for Cloud so the app doesn't freeze
         renderFullUI();
 
         setCloudStatus("⏳ Connecting to Sheet...");
@@ -1416,13 +1417,50 @@ function renderBracketUI(eventId, classId) {
 // ==========================================
 function getCleanAthalon(classId) {
     if (!data.events[classId]) data.events[classId] = {};
+    
     if (!data.events[classId].athalon || Array.isArray(data.events[classId].athalon) || typeof data.events[classId].athalon !== 'object') {
-        data.events[classId].athalon = { runs: {} };
+        data.events[classId].athalon = { runs: {}, order: [], isRevealing: false, revealStep: 0 };
     }
-    if (!data.events[classId].athalon.runs) {
-        data.events[classId].athalon.runs = {}; 
-    }
+    if (!data.events[classId].athalon.runs) data.events[classId].athalon.runs = {}; 
+    if (!data.events[classId].athalon.order) data.events[classId].athalon.order = [];
     return data.events[classId].athalon;
+}
+
+function randomizeAthalonOrder(classId) {
+    if (!isAdmin) return;
+    if (!confirm("Randomize order? This will clear any existing times and awards for Robathalon.")) return;
+    
+    const ath = getCleanAthalon(classId);
+    const activeTeams = data.teams.filter(t => t.classId === classId).map(t => t.id);
+    
+    ath.order = shuffleArray(activeTeams);
+    ath.runs = {};
+    ath.isRevealing = true;
+    ath.revealStep = 0;
+    
+    undoEventPoints('athalon', classId);
+    saveData();
+    
+    function revealNext() {
+        const a = getCleanAthalon(classId);
+        if (!a.isRevealing) return;
+        a.revealStep++;
+        
+        if (a.revealStep >= a.order.length) {
+            a.isRevealing = false;
+            saveData();
+        } else {
+            renderFullUI();
+            setTimeout(revealNext, 1200);
+        }
+    }
+    
+    if (ath.order.length > 0) {
+        setTimeout(revealNext, 1200);
+    } else {
+        ath.isRevealing = false;
+        saveData();
+    }
 }
 
 function updateAthalonTeamDropdown(classId) {
@@ -1432,14 +1470,17 @@ function updateAthalonTeamDropdown(classId) {
 
     const roundNum = parseInt(roundSel.value) || 1;
     const ath = getCleanAthalon(classId);
-    const classTeams = data.teams.filter(t => t.classId === classId);
-
+    
     teamSel.innerHTML = "";
+    let toSelectId = null;
 
     if (roundNum === 1) {
-        classTeams.forEach(t => {
+        const runOrder = getAthalonRankedTeams(classId, 1);
+        runOrder.forEach(t => {
             const rData = ath.runs[t.id];
             const hasRun = rData && (rData.r1 || rData.r1Ms !== null);
+            if (!hasRun && !toSelectId) toSelectId = t.id;
+
             const labelText = t.name + " " + (hasRun ? "(✓ " + rData.r1 + ")" : "(Pending)");
             const opt = document.createElement('option');
             opt.value = t.id;
@@ -1455,9 +1496,12 @@ function updateAthalonTeamDropdown(classId) {
             opt.innerText = "-- Complete Round 1 First --";
             teamSel.appendChild(opt);
         } else {
-            top3.forEach(t => {
+            const reverseTop3 = top3.slice().reverse();
+            reverseTop3.forEach(t => {
                 const rData = ath.runs[t.id];
                 const hasRun = rData && (rData.r2 || rData.r2Ms !== null);
+                if (!hasRun && !toSelectId) toSelectId = t.id;
+
                 const labelText = t.name + " " + (hasRun ? "(✓ " + rData.r2 + ")" : "(Pending Final)");
                 const opt = document.createElement('option');
                 opt.value = t.id;
@@ -1465,6 +1509,10 @@ function updateAthalonTeamDropdown(classId) {
                 teamSel.appendChild(opt);
             });
         }
+    }
+    
+    if (toSelectId) {
+        teamSel.value = toSelectId;
     }
 }
 
@@ -1578,7 +1626,6 @@ function saveAthalonRunTime(elapsedMs, timeStr) {
     }
 
     closeMatchModal();
-    renderAthalon();
     saveData();
 }
 
@@ -1595,7 +1642,6 @@ function updateAthalonManualTime(classId, teamId, roundNum, val) {
         ath.runs[teamId].r2 = val.trim();
         ath.runs[teamId].r2Ms = parsedMs;
     }
-    renderAthalon();
     saveData();
 }
 
@@ -1607,9 +1653,18 @@ function getAthalonRankedTeams(classId, roundNum = 1) {
         return classTeams.slice().sort((a, b) => {
             const ra = ath.runs[a.id];
             const rb = ath.runs[b.id];
-            const msA = ra && ra.r1Ms !== null && !ra.dq ? ra.r1Ms : Infinity;
-            const msB = rb && rb.r1Ms !== null && !rb.dq ? rb.r1Ms : Infinity;
-            return msA - msB;
+            const hasA = ra && ra.r1Ms !== null && !ra.dq;
+            const hasB = rb && rb.r1Ms !== null && !rb.dq;
+            
+            if (hasA && hasB) return ra.r1Ms - rb.r1Ms;
+            if (hasA && !hasB) return -1;
+            if (!hasA && hasB) return 1;
+            
+            const idxA = ath.order ? ath.order.indexOf(a.id) : -1;
+            const idxB = ath.order ? ath.order.indexOf(b.id) : -1;
+            const posA = idxA !== -1 ? idxA : 999;
+            const posB = idxB !== -1 ? idxB : 999;
+            return posA - posB;
         });
     } else {
         const top3R1 = getAthalonRankedTeams(classId, 1).slice(0, 3);
@@ -1648,6 +1703,15 @@ function renderAthalon() {
                 else { medalBadge = '<span class="qualifier-badge">⭐ Qualifier</span>'; }
             }
 
+            let displayName = t.name;
+            if (ath.isRevealing) {
+                if (index >= ath.revealStep) {
+                    displayName = '<span class="suspense">???</span>';
+                } else {
+                    displayName = '<span style="color:var(--green); font-weight:bold;">' + t.name + '</span>';
+                }
+            }
+
             const readAttr = isAdmin ? '' : 'readonly';
             let r2ColHtml = '<span style="color:#aaa; font-size:11px;">—</span>';
             if (isTop3) {
@@ -1662,7 +1726,7 @@ function renderAthalon() {
             return `
             <tr class="${medalRowClass}">
                 <td><strong>${rankLabel}</strong></td>
-                <td style="text-align:left; font-weight:600; padding-left:10px;">${t.name}</td>
+                <td style="text-align:left; font-weight:600; padding-left:10px;">${displayName}</td>
                 <td>
                     <input type="text" class="match-time-input" value="${r1Val}" placeholder="--:--" ${readAttr} onchange="updateAthalonManualTime(${cId}, ${t.id}, 1, this.value)">
                 </td>
@@ -1677,7 +1741,7 @@ function renderAthalon() {
             const award = data.awards ? data.awards[cId]?.['athalon'] : null;
             const r2Finals = rankedR2.filter(t => ath.runs[t.id] && ath.runs[t.id].r2Ms !== null);
 
-            if ((r2Finals.length >= 3 && !award) || (award && award.first !== "None")) {
+            if ((r2Finals.length >= 3 && !award && !ath.isRevealing) || (award && award.first !== "None")) {
                 const gName = award ? award.first : (rankedR2[0] ? rankedR2[0].name : "—");
                 const sName = award ? award.second : (rankedR2[1] ? rankedR2[1].name : "—");
                 const bName = award ? award.third : (rankedR2[2] ? rankedR2[2].name : "—");
@@ -1735,9 +1799,10 @@ function awardAthalonPoints(classId) {
 
 function revokeAthalonPoints(classId) {
     if (!isAdmin) return;
-    if (!data.awards[classId]?.['athalon']) return;
-    if (confirm("Reset Robathalon points for this class?")) {
+    if (confirm("WARNING: This will clear ALL run times and points for Robathalon for this class. Proceed?")) {
         undoEventPoints('athalon', classId);
+        const ath = getCleanAthalon(classId);
+        ath.runs = {};
         saveData();
     }
 }
@@ -1814,9 +1879,15 @@ function undoEventPoints(eventId, classId) {
 
 function revokePoints(eventId, classId) {
     if (!isAdmin) return;
-    if (!data.awards[classId]?.[eventId]) return;
-    if (confirm("Reset points for this event? Points will be subtracted from the leaderboard.")) {
+    if (confirm("WARNING: This will clear ALL match times, winners, and points for this event (keeping only the seeds). Proceed?")) {
         undoEventPoints(eventId, classId);
+        const ev = data.events[classId][eventId];
+        if (ev) {
+            ev.winners = {};
+            ev.times = {};
+            ev.dq = {};
+            autoAdvanceCascade(ev);
+        }
         saveData();
     }
 }
@@ -1894,9 +1965,12 @@ function awardGolfPoints(classId) {
 
 function revokeGolfPoints(classId) {
     if (!isAdmin) return;
-    if (!data.awards[classId]?.['golf']) return;
-    if (confirm("Reset golf points for this class?")) {
+    if (confirm("WARNING: This will clear ALL scores and points for Bot-Bot Golf for this class. Proceed?")) {
         undoEventPoints('golf', classId);
+        const classTeams = data.teams.filter(t => t.classId === classId).map(t => t.id);
+        classTeams.forEach(id => {
+            delete data.golfScores[id];
+        });
         saveData();
     }
 }
