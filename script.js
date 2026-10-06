@@ -168,7 +168,7 @@ window.onload = function() {
             });
     } catch (e) {
         console.error("Startup error:", e);
-        setCloudStatus("⚠️ UI Render Error: " + e.message);
+        setCloudStatus("⚠️️ UI Render Error: " + e.message);
     }
 };
 
@@ -551,7 +551,6 @@ function startActiveMatchClock(eventId) {
         }, 30);
 
     } else {
-        // Tug-o-War countdown (30s)
         const endTime = Date.now() + 30000;
         displayArea.innerHTML = `<div class="clock-active">30.00s</div>`;
         clockControls.innerHTML = `<button class="btn-single-stop btn-stop-1st" onclick="finishCountdownEarly(${endTime})">⏹️ STOP / WINNER DECIDED</button>`;
@@ -878,6 +877,7 @@ function autoAdvanceCascade(ev) {
     const r5 = resolveMatch('m5'), r6 = resolveMatch('m6');
     ev.m7[0] = r5.winner; ev.m7[1] = r6.winner; 
     
+    // Semifinal losers to 3rd place
     ev.m8[0] = (r5.loser && r5.loser !== "BYE") ? r5.loser : (r1.loser && r1.loser !== "BYE" ? r1.loser : (r2.loser || "BYE"));
     ev.m8[1] = (r6.loser && r6.loser !== "BYE") ? r6.loser : (r3.loser && r3.loser !== "BYE" ? r3.loser : (r4.loser || "BYE"));
 
@@ -1096,6 +1096,7 @@ function randomizeRelayBracket(eventId, classId) {
     }
     pairs = shuffleArray(pairs);
 
+    // Balanced Q1-Q4 pairings
     let m = {
         m1: ["BYE", "BYE"],
         m2: ["BYE", "BYE"],
@@ -1185,6 +1186,7 @@ function toggleDQ(event, eventId, classId, matchId, slotIdx) {
     saveData();
 }
 
+// RENDERS BRACKETS AND CONTROLS
 function renderBracketUI(eventId, classId) {
     const container = document.getElementById(`bracket-${eventId}-${classId}`);
     const controlsContainer = document.getElementById(`controls-${eventId}-${classId}`);
@@ -1269,6 +1271,7 @@ function renderBracketUI(eventId, classId) {
         if (currentVal === "?") classes += " suspense";
         if (isRevealing || currentVal === "BYE" || currentVal === "" || isManual || isDQ || !isAdmin) classes += " locked";
 
+        // Lane Color Background Tints
         if (hasLanes && hasTeam && !isDQ) {
             classes += slotIdx === 0 ? " lane-blue" : " lane-red";
         }
@@ -1329,6 +1332,7 @@ function renderBracketUI(eventId, classId) {
         const valid0 = isValidTeam(t0) && !isSlotDQ(ev, mId, 0);
         const valid1 = isValidTeam(t1) && !isSlotDQ(ev, mId, 1);
         const hasTwoTeams = valid0 && valid1;
+        // Allows starting timer for 2 teams OR a solo time trial against a BYE
         const canTimeMatch = hasTwoTeams || (valid0 && t1 === "BYE") || (valid1 && t0 === "BYE");
         const showMatchTimer = !isRevealing && !isManual && canTimeMatch && isAdmin;
 
