@@ -155,20 +155,22 @@ function setCloudStatus(msg) {
 }
 
 window.onload = function() {
-    setCloudStatus("⏳ Connecting to Sheet...");
     try {
         buildBracketEventsHTML();
-        
+        // ----------------------------------------------------
+        // THIS RENDER HAPPENS INSTANTLY BEFORE THE CLOUD FETCH
+        // SO THE APP NEVER FREEZES
+        // ----------------------------------------------------
+        renderFullUI();
+
+        setCloudStatus("⏳ Connecting to Sheet...");
         fetch(`${APPS_SCRIPT_URL}?action=getYears`)
             .then(res => res.json())
             .then(res => populateYearsAndLoad(res.years))
-            .catch(() => {
-                setCloudStatus("💾 Synced Locally (Offline)");
-                renderFullUI();
-            });
+            .catch(() => setCloudStatus("💾 Synced Locally (Offline)"));
     } catch (e) {
         console.error("Startup error:", e);
-        setCloudStatus("⚠️️ UI Render Error: " + e.message);
+        setCloudStatus("⚠️ UI Render Error: " + e.message);
     }
 };
 
@@ -538,7 +540,7 @@ function startActiveMatchClock(eventId) {
         } else {
             clockControls.innerHTML = `
                 <button id="btn-master-stop" class="btn-single-stop btn-stop-1st" onclick="handleSingleStopPress(${startTime})">
-                    ⏹️ STOP 1ST PLACE
+                    ⏹️️ STOP 1ST PLACE
                 </button>
                 <div style="margin-top: 14px;">
                     <button class="btn-early-stop" onclick="finishDualRaceEarly(${startTime})">🏁 End Race Early / DNF</button>
@@ -551,6 +553,7 @@ function startActiveMatchClock(eventId) {
         }, 30);
 
     } else {
+        // Tug-o-War countdown (30s)
         const endTime = Date.now() + 30000;
         displayArea.innerHTML = `<div class="clock-active">30.00s</div>`;
         clockControls.innerHTML = `<button class="btn-single-stop btn-stop-1st" onclick="finishCountdownEarly(${endTime})">⏹️ STOP / WINNER DECIDED</button>`;
@@ -1096,7 +1099,6 @@ function randomizeRelayBracket(eventId, classId) {
     }
     pairs = shuffleArray(pairs);
 
-    // Balanced Q1-Q4 pairings
     let m = {
         m1: ["BYE", "BYE"],
         m2: ["BYE", "BYE"],
@@ -1186,7 +1188,6 @@ function toggleDQ(event, eventId, classId, matchId, slotIdx) {
     saveData();
 }
 
-// RENDERS BRACKETS AND CONTROLS
 function renderBracketUI(eventId, classId) {
     const container = document.getElementById(`bracket-${eventId}-${classId}`);
     const controlsContainer = document.getElementById(`controls-${eventId}-${classId}`);
@@ -1271,7 +1272,6 @@ function renderBracketUI(eventId, classId) {
         if (currentVal === "?") classes += " suspense";
         if (isRevealing || currentVal === "BYE" || currentVal === "" || isManual || isDQ || !isAdmin) classes += " locked";
 
-        // Lane Color Background Tints
         if (hasLanes && hasTeam && !isDQ) {
             classes += slotIdx === 0 ? " lane-blue" : " lane-red";
         }
@@ -1332,7 +1332,6 @@ function renderBracketUI(eventId, classId) {
         const valid0 = isValidTeam(t0) && !isSlotDQ(ev, mId, 0);
         const valid1 = isValidTeam(t1) && !isSlotDQ(ev, mId, 1);
         const hasTwoTeams = valid0 && valid1;
-        // Allows starting timer for 2 teams OR a solo time trial against a BYE
         const canTimeMatch = hasTwoTeams || (valid0 && t1 === "BYE") || (valid1 && t0 === "BYE");
         const showMatchTimer = !isRevealing && !isManual && canTimeMatch && isAdmin;
 
