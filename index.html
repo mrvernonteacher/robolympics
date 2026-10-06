@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- UPDATE FORCE TAG: OCT 6 V1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robo-Lympics Standings</title>
-    <link rel="stylesheet" href="style.css?v=1006">
+    <link rel="stylesheet" href="style.css?v=1100">
     <script>
         // Automatic Error Reporter (Catches fatal crashes and prints them to screen)
         window.onerror = function(msg, url, line) {
             const errBox = document.getElementById('debug-error-box');
             if(errBox) {
                 errBox.style.display = 'block';
-                errBox.innerHTML += `<br>🔴 <strong>CRASH:</strong> ${msg} (Line ${line})`;
+                errBox.innerHTML += "<br>🔴 CRASH: " + msg + " (Line " + line + ")";
             }
         };
     </script>
@@ -157,6 +156,7 @@
             <div class="athalon-timer-panel admin-only">
                 <div style="font-weight: bold; font-size: 13px; color: #333; margin-bottom: 8px;">⏱️ Individual Run Launcher</div>
                 <div style="display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="randomizeAthalonOrder(1)" style="background-color: #5c6bc0; padding: 7px 14px;">🎲 Randomize Order</button>
                     <select id="athalon-round-select-1" style="font-weight: bold;" onchange="updateAthalonTeamDropdown(1)">
                         <option value="1">Round 1 (Qualifying)</option>
                         <option value="2">Round 2 (Top 3 Finals)</option>
@@ -185,7 +185,7 @@
             <div id="status-athalon-1" class="award-status">Points Not Awarded</div>
             <div class="points-action-bar admin-only">
                 <button onclick="awardAthalonPoints(1)" class="points-btn">Award Points (5-3-1)</button>
-                <button onclick="revokeAthalonPoints(1)" class="btn-warning">Rescore / Reset Points</button>
+                <button onclick="revokeAthalonPoints(1)" class="btn-warning">Rescore / Clear Results</button>
             </div>
         </div>
 
@@ -197,6 +197,7 @@
             <div class="athalon-timer-panel admin-only">
                 <div style="font-weight: bold; font-size: 13px; color: #333; margin-bottom: 8px;">⏱️ Individual Run Launcher</div>
                 <div style="display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="randomizeAthalonOrder(2)" style="background-color: #5c6bc0; padding: 7px 14px;">🎲 Randomize Order</button>
                     <select id="athalon-round-select-2" style="font-weight: bold;" onchange="updateAthalonTeamDropdown(2)">
                         <option value="1">Round 1 (Qualifying)</option>
                         <option value="2">Round 2 (Top 3 Finals)</option>
@@ -225,7 +226,7 @@
             <div id="status-athalon-2" class="award-status">Points Not Awarded</div>
             <div class="points-action-bar admin-only">
                 <button onclick="awardAthalonPoints(2)" class="points-btn">Award Points (5-3-1)</button>
-                <button onclick="revokeAthalonPoints(2)" class="btn-warning">Rescore / Reset Points</button>
+                <button onclick="revokeAthalonPoints(2)" class="btn-warning">Rescore / Clear Results</button>
             </div>
         </div>
     </div>
@@ -251,7 +252,7 @@
             <div id="status-golf-1" class="award-status">Points Not Awarded</div>
             <div class="points-action-bar admin-only">
                 <button onclick="awardGolfPoints(1)" class="points-btn">Award Double Points</button>
-                <button onclick="revokeGolfPoints(1)" class="btn-warning">Rescore / Reset Points</button>
+                <button onclick="revokeGolfPoints(1)" class="btn-warning">Rescore / Clear Results</button>
             </div>
         </div>
 
@@ -267,12 +268,12 @@
             <div id="status-golf-2" class="award-status">Points Not Awarded</div>
             <div class="points-action-bar admin-only">
                 <button onclick="awardGolfPoints(2)" class="points-btn">Award Double Points</button>
-                <button onclick="revokeGolfPoints(2)" class="btn-warning">Rescore / Reset Points</button>
+                <button onclick="revokeGolfPoints(2)" class="btn-warning">Rescore / Clear Results</button>
             </div>
         </div>
     </div>
 </div>
 
-<script src="script.js?v=1006"></script>
+<script src="script.js?v=1100"></script>
 </body>
 </html>
