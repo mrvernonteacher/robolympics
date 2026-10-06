@@ -14,10 +14,7 @@ function toggleAdmin() {
             document.getElementById('adminBtn').classList.add('logged-in');
             document.getElementById('class1Name').removeAttribute('readonly');
             document.getElementById('class2Name').removeAttribute('readonly');
-            renderSetup();
-            bracketEvents.forEach(ev => { renderBracketUI(ev, 1); renderBracketUI(ev, 2); });
-            renderAthalon();
-            renderGolf();
+            renderFullUI();
         } else if (entered !== null) {
             alert("Incorrect PIN.");
         }
@@ -28,10 +25,7 @@ function toggleAdmin() {
         document.getElementById('adminBtn').classList.remove('logged-in');
         document.getElementById('class1Name').setAttribute('readonly', 'readonly');
         document.getElementById('class2Name').setAttribute('readonly', 'readonly');
-        renderSetup();
-        bracketEvents.forEach(ev => { renderBracketUI(ev, 1); renderBracketUI(ev, 2); });
-        renderAthalon();
-        renderGolf();
+        renderFullUI();
     }
 }
 
@@ -164,12 +158,14 @@ window.onload = function() {
     setCloudStatus("⏳ Connecting to Sheet...");
     try {
         buildBracketEventsHTML();
-        renderFullUI();
-
+        
         fetch(`${APPS_SCRIPT_URL}?action=getYears`)
             .then(res => res.json())
             .then(res => populateYearsAndLoad(res.years))
-            .catch(() => setCloudStatus("💾 Synced Locally (Offline)"));
+            .catch(() => {
+                setCloudStatus("💾 Synced Locally (Offline)");
+                renderFullUI();
+            });
     } catch (e) {
         console.error("Startup error:", e);
         setCloudStatus("⚠️ UI Render Error: " + e.message);
@@ -882,7 +878,6 @@ function autoAdvanceCascade(ev) {
     const r5 = resolveMatch('m5'), r6 = resolveMatch('m6');
     ev.m7[0] = r5.winner; ev.m7[1] = r6.winner; 
     
-    // Semifinal losers to 3rd place
     ev.m8[0] = (r5.loser && r5.loser !== "BYE") ? r5.loser : (r1.loser && r1.loser !== "BYE" ? r1.loser : (r2.loser || "BYE"));
     ev.m8[1] = (r6.loser && r6.loser !== "BYE") ? r6.loser : (r3.loser && r3.loser !== "BYE" ? r3.loser : (r4.loser || "BYE"));
 
